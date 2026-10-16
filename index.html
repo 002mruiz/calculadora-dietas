@@ -162,7 +162,7 @@ table{border-collapse:collapse;width:100%}
 .meal-sum{font-family:var(--f-num);font-size:.82rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
 .meal-sum b{color:var(--fg);font-weight:500}
 .meal-tools{display:flex;gap:2px;margin-left:auto}
-.irow{display:grid;grid-template-columns:minmax(0,2.1fr) 210px minmax(0,1.1fr) 58px 50px 50px 50px 88px;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line-2)}
+.irow{display:grid;grid-template-columns:minmax(0,2.1fr) 210px minmax(0,1.1fr) 58px 50px 50px 50px 116px;gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line-2)}
 .irow.head{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding-block:6px}
 .irow .n{text-align:right;font-family:var(--f-num);font-size:.85rem;font-variant-numeric:tabular-nums}
 .irow.isbad{background:var(--bad-bg)}
@@ -245,6 +245,14 @@ table{border-collapse:collapse;width:100%}
 @media (max-width:560px){.soma{grid-template-columns:minmax(0,1fr)}}
 .soma svg{width:100%;max-width:230px;height:auto;display:block}
 .miss{font-size:.84rem;color:var(--muted)}
+/* Planificador */
+.tbl input.plan-in{width:72px;padding:4px 6px;text-align:right}
+.tbl tr.step td{background:var(--surface-2);font-size:.82rem;color:var(--muted)}
+.tbl tr.step td b{color:var(--fg)}
+.tbl tr.grp-h td{font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:10px}
+.tbl tr.tot td{font-weight:600;border-top:1.5px solid var(--line)}
+.verdict{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:6px}
+.tbl input.dist-in{width:60px;padding:4px 5px;text-align:right}
 /* Exportar */
 .logo-box{width:150px;height:72px;border:1px dashed var(--line);border-radius:6px;display:flex;align-items:center;justify-content:center;background:#fff;overflow:hidden;color:#6b746e;font-size:.8rem;flex:none}
 .logo-box img{max-width:100%;max-height:100%;object-fit:contain}
@@ -413,7 +421,28 @@ table{border-collapse:collapse;width:100%}
 
   <!-- 3 · INTERCAMBIOS -->
   <section id="tab-xch" class="stack" hidden>
-    <div class="grid g2">
+    <div class="card">
+      <div class="card-h">
+        <h2>Planificador por intercambios</h2>
+        <div class="seg" role="radiogroup" aria-label="Sistema">
+          <label><input type="radio" name="psys" value="rm"><span>Intercambios (Russolillo y Marques)</span></label>
+          <label><input type="radio" name="psys" value="eq"><span>Equivalentes de 10 g (Clínic)</span></label>
+        </div>
+      </div>
+      <div id="planFormula" class="small" style="margin-bottom:10px"></div>
+      <div class="scroll" id="planTbl"></div>
+      <div id="planVerdict" style="margin-top:12px"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Reparto por comidas</h2><div class="row-f" style="gap:8px"><button class="btn sm" type="button" id="distAuto">Repartir automáticamente</button><button class="btn sm ghost" type="button" id="distClear">Vaciar reparto</button></div></div>
+      <div class="scroll" id="distTbl"></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h2>Listas de intercambio</h2><div class="row-f" style="gap:8px"><button class="btn sm" type="button" id="listImport">Importar listas (CSV)</button><button class="btn sm ghost" type="button" id="listClear">Borrar listas importadas</button></div></div>
+      <div id="planLists"></div>
+    </div>
+    <details class="card" id="xgOld"><summary style="cursor:pointer;font-weight:600">Equivalencias de los alimentos de la pauta por gramaje</summary>
+    <div class="grid g2" style="margin-top:14px">
       <div class="card">
         <div class="card-h"><h2>Definición de los intercambios</h2></div>
         <p class="muted small" style="margin-top:0">Cada intercambio equivale a una cantidad fija del nutriente de referencia del grupo. Los gramos de cada alimento se calculan con sus valores por 100 g: <span class="mono">g = cantidad ÷ nutriente por 100 g × 100</span>. Ajusta la convención a la tabla que uses en consulta.</p>
@@ -429,6 +458,7 @@ table{border-collapse:collapse;width:100%}
       <div class="card-h"><h2>Listas de alimentos intercambiables</h2><span class="muted small">Solo compatibles con las restricciones marcadas</span></div>
       <div class="grid g2" id="xgLists"></div>
     </div>
+    </details>
   </section>
 
   <!-- 4 · ALIMENTOS -->
@@ -656,6 +686,8 @@ function mkRef(r){const [id,n,g,xg,kcal,p,hc,az,fib,gr,sat,sal,alg,fl,meas,av,de
   return {id,n,b:'',bc:'',g,xg,src:'ref',v:{kcal,p,hc,az,fib,gr,sat,sal},a:alg?alg.split(','):[],t:[],av:!!av,fv:true,dv:!!av,f,m:parseMeas(meas),dens:dens||null}}
 const FOODS=new Map();
 REF.forEach(r=>{const f=mkRef(r);FOODS.set(f.id,f)});
+/* Porción comestible orientativa (fracción) usada en los ejemplos de clase */
+Object.entries({kiwi:.84,sandia:.63,platano:.61,lechuga:.57,tomate:.95,cebolla:.88,patata:.81,berenjena:.70,salmon:.75}).forEach(([k,v])=>{const f=FOODS.get(k);if(f)f.pc=v});
 LS.get('dc_foods',[]).forEach(f=>{if(f&&f.id&&f.v)FOODS.set(f.id,f)});
 let MEAS_OV=LS.get('dc_meas',{});
 function saveOwn(){LS.set('dc_foods',[...FOODS.values()].filter(f=>f.src!=='ref'))}
@@ -700,9 +732,10 @@ function compatTags(f,c){
 }
 
 /* ============ Estado (solo en memoria) ============ */
-const S={p:{sex:'',age:null,w:null,h:null,ffm:null,bf:null},formula:'mifflin',af:'1.55',afCustom:null,goal:'perd',adjMode:'pct',adj:15,manual:null,
+const S={p:{sex:'',age:null,w:null,h:null,ffm:null,bf:null},formula:'mifflin',af:'1.55',afCustom:null,goal:'perd',adjMode:'kcal',adj:500,manual:null,
   macroMode:'pct',mp:20,mh:50,mg:30,gp:1.6,gg:1,gkBase:'peso',wMode:'auto',imcDes:22.5,desManual:null,corrF:0.25,tid:false,palRows:null,restr:new Set(),meals:[],showBad:false,example:false,
-  pref:{excl:new Set(),allowUnv:false,fruitMain:true,dairy:true}};
+  pref:{excl:new Set(),allowUnv:false,fruitMain:true,dairy:true},
+  plan:{sys:'rm',c:{lac_ent:0,lac_semi:0,lac_des:0,lac_azu:0,post:0,ver:0,fru:0,azu:0,leg:0,rep:0,p2:0,p3:0,p4:0,p5:0},eq:{leche:0,lecheTipo:'semi',ver:0,fru:0},dist:{}}};
 const DEFAULT_MEALS=['Desayuno','Media mañana','Comida','Merienda','Cena','Recena','Comida 7','Comida 8'];
 
 /* ============ Requerimientos ============ */
@@ -791,7 +824,7 @@ function renderReq(){
       <tr${WT.mode==='deseable'&&usesW?' class="sel"':''}><td>Peso deseable</td><td class="n">${nf(d,1)} kg</td><td class="small mono">${S.desManual>0?`fijado a mano (IMC ${nf(S.imcDes,1)} → ${nf(WT.desCalc,2)} kg)`:`${nf(S.imcDes,1)} × ${nf(S.p.h/100,2)}²`}</td></tr>
       <tr${WT.mode==='corregido'&&usesW?' class="sel"':''}><td>Peso corregido</td><td class="n">${nf(WT.cor,1)} kg</td><td class="small mono">${nf(d,1)} + ${nf(S.corrF,2)} × (${nf(S.p.w,1)} − ${nf(d,1)})</td></tr>
       <tr${WT.mode==='actual'&&usesW?' class="sel"':''}><td>Peso actual</td><td class="n">${nf(S.p.w,1)} kg</td><td class="small">${WT.exc>0?`exceso ${nf(WT.exc,1)} kg`:''}</td></tr>
-    </tbody></table></div><p class="muted small" style="margin:4px 0 0">${usesW?`Las fórmulas usan el <b>${WMODE_LBL[WT.mode]}</b> (${nf(WT.calc,1)} kg)${S.wMode==='auto'?' (selección automática)':''}.`:'La fórmula elegida usa la masa magra, no el peso.'}</p></div>`}}
+    </tbody></table></div><p class="muted small" style="margin:4px 0 0">${usesW?`Las fórmulas usan el <b>${WMODE_LBL[WT.mode]}</b> (${nf(WT.calc,1)} kg)${S.wMode==='auto'?' (selección automática)':''}. Con exceso de grasa, el gasto se estima con el peso corregido, porque la masa grasa es menos activa que la magra y el peso sin corregir sobrestima las necesidades.`:'La fórmula elegida usa la masa magra, no el peso.'}</p></div>`}}
   if(R.sel&&R.sel.v){
     let extra='';
     if(!R.manual&&R.get&&S.goal!=='mant')extra=` · ${S.goal==='perd'?'−':'+'} ${fmt(R.adjK)} kcal${S.adjMode==='pct'?` (${fmt(S.adj,0)} %)`:''}`;
@@ -802,8 +835,11 @@ function renderReq(){
       const rowT=(lbl,kg)=>{const kc=kg*7200,dd=kc/def;return `<tr><td>${lbl}</td><td class="n">${nf(kg,1)} kg</td><td class="n">${fmt(kc)} kcal</td><td class="n">${fmt(dd)} d</td><td class="n">${nf(dd/7,1)} sem</td><td class="n">≈ ${nf(dd/30.44,1)} meses</td></tr>`};
       let rows='';if(WT.exc>0)rows+=rowT('Exceso de peso (hasta el deseable)',WT.exc);
       if(S.p.w>0)rows+=rowT('Objetivo 5 % del peso actual',S.p.w*0.05)+rowT('Objetivo 10 % del peso actual',S.p.w*0.10);
+      const rate=def*7/7200,T=R.target;
+      const tipo=T<800?'Dieta de muy bajo contenido calórico (VLCD, 400–800 kcal/día)':T<1000?'Restricción severa (800–1.200 kcal/día)':T<1200?'Restricción severa o moderada (rangos 800–1.200 y 1.000–1.400 kcal/día)':T<=1400?'Restricción moderada (1.000–1.400 kcal/día)':'Restricción leve (aporta al menos 1.200 kcal/día)';
+      h+=`<div class="row-f" style="gap:8px"><span class="tag ${rate>=0.5&&rate<=1?'ok':'warn'}" style="font-size:.8rem">Ritmo ≈ ${nf(rate,2)} kg/semana (recomendado 0,5–1)</span><span class="tag ${T<1000?'bad':T<1200?'warn':'acc'}" style="font-size:.8rem">${tipo}</span><span class="tag ${def>=500&&def<=600?'ok':'warn'}" style="font-size:.8rem">Déficit ${fmt(def)} kcal (recomendado 500–600)</span></div>`;
       if(rows)h+=`<div><div class="label" style="margin-bottom:4px">Tiempo estimado con un déficit de ${fmt(def)} kcal/día</div><div class="scroll"><table class="tbl"><tbody>${rows}</tbody></table></div>
-        <p class="muted small" style="margin:4px 0 0">Estimación teórica: 7.200 kcal por kg de peso perdido, déficit constante. 1 mes = 30,44 días (si se usan 4 semanas por mes, el resultado sale algo mayor). ${R.get>2000?'Con un GET superior a 2.000 kcal suele aplicarse una restricción de 500 kcal.':''}</p></div>`}
+        <p class="muted small" style="margin:4px 0 0">Estimación teórica: 7.200 kcal por kg de peso perdido, déficit constante. 1 mes = 30,44 días (si se usan 4 semanas por mes, el resultado sale algo mayor). Criterios del Tema 2.1: déficit de 500–600 kcal sobre el gasto estimado, pérdida de 0,5–1 kg/semana y clasificación de la restricción según las kcal que aporta la dieta.</p></div>`}
   }
   for(const [t,m] of R.warn)h+=`<div class="warnbox ${t}">${esc(m)}</div>`;
   // macros
@@ -860,9 +896,9 @@ function rowHTML(m,it){
     <div class="n cpp cp" data-l="P" data-c="p">${fmt(n.p,1)}</div>
     <div class="n chh chc" data-l="HC" data-c="hc">${fmt(n.hc,1)}</div>
     <div class="n cgg cg" data-l="G" data-c="gr">${fmt(n.gr,1)}</div>
-    <div class="iact"><button class="ib ${it.lock?'on':''}" type="button" data-act="lock" title="${it.lock?'Desbloquear':'Bloquear: se mantiene al proponer o regenerar'}" aria-pressed="${!!it.lock}">${it.lock?IC.lock:IC.unlock}</button><button class="ib" type="button" data-act="swap" title="Sugerir sustituciones">${IC.swap}</button><button class="ib del" type="button" data-act="del" title="Quitar" aria-label="Quitar ${esc(f.n)}">${IC.x}</button></div></div>`;
+    <div class="iact"><button class="ib ${it.lock?'on':''}" type="button" data-act="lock" title="${it.lock?'Desbloquear':'Bloquear: se mantiene al proponer o regenerar'}" aria-pressed="${!!it.lock}">${it.lock?IC.lock:IC.unlock}</button><button class="ib" type="button" data-act="swap" title="Sugerir sustituciones">${IC.swap}</button><button class="ib" type="button" data-act="fit" title="Ajustar la cantidad a lo que falta">${IC.fit}</button><button class="ib del" type="button" data-act="del" title="Quitar" aria-label="Quitar ${esc(f.n)}">${IC.x}</button></div></div>`;
 }
-function eqText(f,it,n,x){let s=`= ${fmt(n.g)} g`;if(x&&it.mode!=='int')s+=` · ${fmtQ(Math.round(n.g/x*10)/10)} interc.`;return s}
+function eqText(f,it,n,x){let s=`= ${fmt(n.g)} g`;if(f.pc>0&&f.pc<1)s+=` (bruto ≈ ${fmt(n.g/f.pc)} g)`;if(x&&it.mode!=='int')s+=` · ${fmtQ(Math.round(n.g/x*10)/10)} interc.`;return s}
 
 function renderMeals(){
   $('#nMeals').value=S.meals.length;$('#showBad').checked=S.showBad;
@@ -902,6 +938,7 @@ function renderTotals(R=req(),dt=dayTot()){
    ${rows.map(([k,l,u,t,d])=>`<tr><td>${k!=='kcal'?`<i class="dot ${k==='gr'?'g':k}"></i>`:''}${l}<div class="muted small">${k==='kcal'?'kcal':`${fmt(k==='p'?pe.p:k==='hc'?pe.hc:pe.gr,0)} % E${tp?` · obj. ${fmt(k==='p'?tp.p:k==='hc'?tp.hc:tp.gr,0)} %`:''}`}</div></td><td class="n">${fmt(t,d)}</td><td class="n">${fmt(dt[k],d)}</td><td class="n"><span class="tag ${devCls(dt[k],t)}" style="font-family:var(--f-num)">${devTxt(dt[k],t,d)}</span></td></tr>`).join('')}
    </tbody></table></div>
    <div class="scroll"><table class="tbl"><tbody>${refs.map(([k,l,u,r])=>`<tr><td>${l}<div class="muted small">${r}</div></td><td class="n">${fmt(dt[k],k==='sal'?2:1)} ${u}</td></tr>`).join('')}</tbody></table></div>
+   ${critHTML(dt,R)}
    <p class="muted small" style="margin:0">Desvío: verde ≤ 5 %, ámbar ≤ 10 %, rojo > 10 %. Los % de energía se calculan con 4/4/9 kcal/g. La referencia de azúcares de la OMS (< 10 % E) es para azúcares libres; aquí se suman los azúcares totales.</p>
   </div>`;
   $('#totals').innerHTML=h;
@@ -947,7 +984,7 @@ async function pickFood(mealId,f){
 function findItem(uidv){for(const m of S.meals){const it=m.items.find(i=>i.id===uidv);if(it)return {m,it}}return {}}
 
 /* ============ Intercambios ============ */
-function renderXch(){
+function renderXch(){renderPlan();
   const refOpts=[['hc','Hidratos'],['p','Proteínas'],['gr','Grasas']];
   $('#xgDef').innerHTML=`<thead><tr><th>Grupo</th><th>Nutriente de referencia</th><th class="n">g por intercambio</th></tr></thead><tbody>${Object.entries(XG).map(([k,d])=>`<tr><td>${esc(d.n)}</td><td><select data-xref="${k}">${refOpts.map(([v,l])=>`<option value="${v}" ${d.ref===v?'selected':''}>${l}</option>`).join('')}</select></td><td class="n"><input type="number" min="1" step="0.5" value="${d.amt}" data-xamt="${k}" style="width:80px"></td></tr>`).join('')}</tbody>`;
   // pauta por intercambios
@@ -996,7 +1033,8 @@ function foodForm(f){
       <label class="fld w-m"><span>Código de barras</span><input type="text" id="ff_bc" inputmode="numeric" value="${esc(f?.bc||'')}" ${isRef?'disabled':''}></label></div>
     <div class="row-f"><label class="fld w-l"><span>Grupo</span><select id="ff_g" ${isRef?'disabled':''}>${Object.entries(GROUPS).map(([k,l])=>`<option value="${k}" ${f?.g===k?'selected':''}>${l}</option>`).join('')}</select></label>
       <label class="fld w-l"><span>Grupo de intercambio</span><select id="ff_xg" ${isRef?'disabled':''}><option value="">Ninguno</option>${Object.entries(XG).map(([k,d])=>`<option value="${k}" ${f?.xg===k?'selected':''}>${d.n}</option>`).join('')}</select></label>
-      <label class="fld w-s"><span>Densidad g/ml</span><input type="number" step="0.01" min="0.3" max="3" id="ff_dens" value="${f?.dens??''}" ${isRef?'disabled':''}></label></div>
+      <label class="fld w-s"><span>Densidad g/ml</span><input type="number" step="0.01" min="0.3" max="3" id="ff_dens" value="${f?.dens??''}" ${isRef?'disabled':''}></label>
+      <label class="fld w-s"><span>Porción comestible</span><input type="number" step="0.01" min="0.05" max="1" id="ff_pc" value="${f?.pc??''}" placeholder="1" ${isRef?'disabled':''}></label></div>
     ${isRef?'':`<div class="row-f"><div class="fld"><span>Valores introducidos</span><div class="seg"><label><input type="radio" name="ffb" value="100" checked><span>por 100 g</span></label><label><input type="radio" name="ffb" value="rac"><span>por ración</span></label></div></div>
       <label class="fld w-s" id="ff_racw" hidden><span>Ración (g)</span><input type="number" min="1" step="any" id="ff_rac"></label></div>`}
     <div class="nutgrid">${nIn('kcal','Energía (kcal)')}${nIn('p','Proteínas (g)')}${nIn('hc','Hidratos (g)')}${nIn('az','Azúcares (g)')}${nIn('fib','Fibra (g)')}${nIn('gr','Grasas (g)')}${nIn('sat','Saturadas (g)')}${nIn('sal','Sal (g)')}</div>
@@ -1030,7 +1068,7 @@ function foodForm(f){
       const vv={};NUT.forEach(([k])=>{const x=num($('#ff_'+k).value);vv[k]=x==null?null:(perRac?x/rac*100:x)});
       const ff={};$$('[data-ff]',md).forEach(c=>{if(c.checked)ff[c.dataset.ff]=1});
       const rec={id:f?.id||('own_'+Date.now()),n:name,b:$('#ff_b').value.trim(),bc:$('#ff_bc').value.trim(),g:$('#ff_g').value,xg:$('#ff_xg').value,src:f?.src||'own',v:vv,
-        a:$$('[data-fa]',md).filter(c=>c.checked).map(c=>c.dataset.fa),t:$$('[data-ft]',md).filter(c=>c.checked).map(c=>c.dataset.ft),
+        pc:num($('#ff_pc').value),a:$$('[data-fa]',md).filter(c=>c.checked).map(c=>c.dataset.fa),t:$$('[data-ft]',md).filter(c=>c.checked).map(c=>c.dataset.ft),
         av:$('#ff_av').checked,dv:$('#ff_dv').checked,fv:$('#ff_fv').checked,f:ff,m:msNew,dens:num($('#ff_dens').value)};
       FOODS.set(rec.id,rec);saveOwn();closeModal();renderAll();toast('Alimento guardado');
     }
@@ -1206,6 +1244,7 @@ mealsEl.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!
   if(act==='del'){const {m,it}=findItem(b.closest('[data-u]').dataset.u);m.items=m.items.filter(x=>x!==it);renderMeals()}
   else if(act==='lock'){const {it}=findItem(b.closest('[data-u]').dataset.u);it.lock=!it.lock;renderMeals()}
   else if(act==='swap'){const {m,it}=findItem(b.closest('[data-u]').dataset.u);swapModal(m,it)}
+  else if(act==='fit'){const {m,it}=findItem(b.closest('[data-u]').dataset.u);fitModal(m,it)}
   else if(act==='regen'){const m=S.meals.find(x=>x.id===b.closest('[data-m]').dataset.m);regenMeal(m)}
   else if(act==='review'){const m=S.meals.find(x=>x.id===b.closest('[data-m]').dataset.m);m.items.forEach(i=>i.prop=false);renderMeals();toast(`${m.name}: revisada`)}
   else if(act==='mup'||act==='mdown'){const id=b.closest('[data-m]').dataset.m;const i=S.meals.findIndex(m=>m.id===id);const j=act==='mup'?i-1:i+1;if(j<0||j>=S.meals.length)return;[S.meals[i],S.meals[j]]=[S.meals[j],S.meals[i]];renderMeals()}});
@@ -1251,7 +1290,8 @@ const IC={
  lock:'<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
  unlock:'<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
  swap:'<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2.5 5.5h10l-2.5-2.5M13.5 10.5h-10l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
- x:'<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>'};
+ x:'<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+ fit:'<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 8h9M8 4.5L11.5 8 8 11.5M14 3v10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'};
 const pendingCount=()=>S.meals.filter(m=>m.items.some(i=>i.prop)).length;
 function renderReview(){const n=pendingCount();const b=$('#reviewBanner');if(!b)return;b.hidden=!n;
   if(n)$('#reviewTxt').textContent=`${n} comida${n>1?'s':''} con alimentos propuestos. Revisa cantidades y alimentos, y pulsa «Marcar revisada» en cada una. No se puede exportar hasta entonces.`}
@@ -1641,8 +1681,20 @@ function buildPdf(){
     y=T({startY:y,head:[[{content:pT(m.name)},{content:pT(fmt(mt.kcal)+' kcal'),styles:{halign:'right'}}]],
       body:m.items.map(it=>{const f=FOODS.get(it.fid);return [pT(f.n+(f.b?' ('+f.b+')':'')),pT(itemText(it))]}),
       columnStyles:{0:{cellWidth:CW*0.55},1:{halign:'right'}},rowPageBreak:'avoid',showHead:'firstPage'})+5}
-  // intercambios por comida
-  if($('#pxXp').checked){const keys=Object.keys(XG);
+  // plan por intercambios (planificador) o pauta en intercambios de la dieta
+  const PC=planCalc();const planOn=PC.any&&PC.ok;
+  if($('#pxXp').checked&&planOn){const rows=PC.rows.filter(r=>r.c>0);const meals=S.meals;const sysN=S.plan.sys==='rm'?'Sistema de intercambios (Russolillo y Marques, 2008)':'Raciones de 10 g (método Clínic)';
+    if(y>PH-70){doc.addPage();y=M+4}
+    doc.setFont('helvetica','bold');doc.setFontSize(11.5);doc.setTextColor(...INK);doc.text('Plan por intercambios',M,y);doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(pT(sysN),PW-M,y,{align:'right'});y+=2;
+    const anyDist=rows.some(r=>meals.some(m=>num(distOf(r.k)[m.id])));
+    const head=anyDist?[['Grupo',...meals.map(m=>m.name),'Total']]:[['Grupo','Intercambios','HC (g)','P (g)','G (g)','kcal']];
+    const body=rows.map(r=>anyDist?[r.n,...meals.map(m=>{const v=num(distOf(r.k)[m.id]);return v?nq(v):'-'}),nq(r.c)]:[r.n,nq(r.c),nq(r.hc*r.c),nq(r.p*r.c),nq(r.g*r.c),nq(r.kcal*r.c)]);
+    if(anyDist){const kc=meals.map(m=>rows.reduce((a,r)=>a+(num(distOf(r.k)[m.id])||0)*r.kcal,0));const tk=kc.reduce((a,b)=>a+b,0);body.push(['kcal',...kc.map(v=>fmt(v)),fmt(tk)]);body.push(['% del día',...kc.map(v=>tk?nf(v/tk*100,0)+' %':'-'),''])}
+    else body.push(['Total','',nq(PC.tot.hc),nq(PC.tot.p),nq(PC.tot.g),nq(PC.tot.kcal)]);
+    const nb=rows.length;
+    y=T({startY:y+1,head:head.map(r=>r.map(pT)),body:body.map(r=>r.map(pT)),styles:{fontSize:8.3},columnStyles:Object.fromEntries(head[0].map((_,i)=>[i,i?{halign:'center'}:{cellWidth:anyDist?48:70}])),
+      didParseCell:dd=>{if(dd.section==='body'&&dd.row.index>=nb)dd.cell.styles.fontStyle='bold';if(dd.section==='head'&&dd.column.index>0)dd.cell.styles.halign='center'}})+6}
+  else if($('#pxXp').checked){const keys=Object.keys(XG);
     const rows=S.meals.filter(m=>m.items.length).map(m=>{const c={};keys.forEach(k=>c[k]=0);m.items.forEach(it=>{const f=FOODS.get(it.fid);const x=f&&gpe(f);if(x)c[f.xg]+=itemGrams(it)/x});return [m.name,...keys.map(k=>{const r=Math.round(c[k]*2)/2;return r?fmt(r,1).replace(/,0$/,''):'-'})]});
     if(rows.length){const tot=keys.map((k,i)=>fmt(rows.reduce((a,r)=>a+(parseFloat(String(r[i+1]).replace(',','.'))||0),0),1).replace(/,0$/,''));
       if(y>PH-60){doc.addPage();y=M+4}
@@ -1651,7 +1703,14 @@ function buildPdf(){
         styles:{fontSize:8.5},didParseCell:dd=>{if(dd.section==='body'&&dd.row.index===rows.length)dd.cell.styles.fontStyle='bold';if(dd.section==='head'&&dd.column.index>0)dd.cell.styles.halign='center'}})+2;
       doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(pT('Redondeado a medios intercambios.'),M,y+3);y+=9}}
   // listas
-  if($('#pxX').checked){
+  if($('#pxX').checked&&planOn){const rows=PC.rows.filter(r=>r.c>0).map(r=>[r,listFor(S.plan.sys,r.k)]).filter(x=>x[1]);
+    if(rows.length){doc.addPage();y=M+4;doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...INK);doc.text('Listas de intercambios',M,y);y+=4;
+      doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(pT('Dentro de cada grupo puedes cambiar un alimento por otro en la cantidad indicada (1 intercambio).'),M,y+2);y+=6;
+      for(const [r,L] of rows){const hasB=L.items.some(i=>i.bruto);
+        y=T({startY:y,head:[[pT(r.n+' · 1 intercambio'),{content:'Peso neto',styles:{halign:'right'}},...(hasB?[{content:'Peso bruto',styles:{halign:'right'}}]:[]),'Medida casera']],
+          body:L.items.map(i=>[pT(i.n),pT(i.neto),...(hasB?[pT(i.bruto||'')]:[]),pT(i.med||'')]),
+          styles:{fontSize:8.3,cellPadding:{top:1.1,bottom:1.1,left:2,right:2}},columnStyles:{0:{cellWidth:CW*0.42},1:{halign:'right',cellWidth:22},...(hasB?{2:{halign:'right',cellWidth:22}}:{})},showHead:'everyPage'})+5}}}
+  else if($('#pxX').checked){
     doc.addPage();y=M+4;doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...INK);doc.text('Listas de intercambios',M,y);y+=4;
     doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(pT('Dentro de cada grupo puedes cambiar un alimento por otro en la cantidad indicada.'),M,y+2);y+=6;
     for(const [k,dd] of Object.entries(XG)){const list=[...FOODS.values()].filter(f=>f.xg===k&&gpe(f)&&compat(f).st!=='bad').sort((a,b)=>a.n.localeCompare(b.n,'es'));if(!list.length)continue;
@@ -1694,9 +1753,186 @@ $('#btnPdf').addEventListener('click',async()=>{if(pendingCount())return;const b
   }catch(e){console.error(e);toast('Error al generar el PDF: '+e.message)}
   b.disabled=false;b.textContent=old});
 
+
+/* ============ Planificador por intercambios ============ */
+/* Russolillo G, Marques I. Sistema de intercambios para la confección de dietas y planificación de menús (2008).
+   [clave, grupo, HC, P, G, kcal, fase]  fase 1: se pautan; 2: cierran HC; 3: cierran P; 4: cierran G */
+const RM=[['lac_ent','Lácteos enteros',9,7,7,127,1],['lac_semi','Lácteos semidesnatados',9,7,3,91,1],['lac_des','Lácteos desnatados',12,9,0,84,1],
+ ['lac_azu','Lácteos azucarados',16,4,2,98,1],['post','Postres lácteos',23,4,3,135,1],['ver','Hortalizas y verduras',4,2,0.5,28.5,1],
+ ['fru','Frutas frescas, desecadas y zumos',15,1,0.25,66.25,1],['azu','Azúcares y dulces',10,0,0,40,1],
+ ['far','Cereales y derivados, tubérculos',14,2,0.5,68.5,2],['leg','Legumbres',14,7,0.5,88.5,2],['rep','Repostería, pastelería y otros',14,2,6,118,2],
+ ['p1','Alimentos proteicos I',0,7,0.5,32.5,3],['p2','Alimentos proteicos II',0,7,2,46,3],['p3','Alimentos proteicos III',0,7,5,73,3],
+ ['p4','Alimentos proteicos IV',0,7,9,109,3],['p5','Alimentos proteicos V',1,7,15,167,3],['gra','Alimentos grasos',0,0,5,45,4]];
+/* Jansà M, Vidal M. Planes de alimentación por raciones de 10 g de HC, método Clínic (Actividad Dietética 2004). Leche: grasa según tipo. */
+const EQ_LECHE={entera:['entera',6],semi:['semidesnatada',3],des:['desnatada',0]};
+function eqGroups(){const lf=EQ_LECHE[S.plan.eq.lecheTipo][1];
+  return [['leche',`Leche ${EQ_LECHE[S.plan.eq.lecheTipo][0]}`,10,6,lf,4*16+9*lf,1],['ver','Verduras',10,0,0,40,1],['fru','Frutas',10,0,0,40,1],
+          ['har','Harinas (farináceos)',10,1.5,0,46,2],['prot','Alimentos proteicos',0,10,5,85,3],['gra','Grasas',0,0,10,90,4]]}
+const XROUND=x=>{if(!(x>0))return 0;const i=Math.floor(x+1e-9),d=x-i;return d<=0.25+1e-9?i:d>=0.75-1e-9?i+1:i+0.5};
+const TOL={hc:6,p:4,g:3,kcal:30};
+function planCalc(){
+  const R=req();const T={hc:R.HC,p:R.P,g:R.G,kcal:R.target};const ok=R.target&&R.P!=null&&R.HC!=null;
+  const P=S.plan;const steps={};let rows;
+  if(P.sys==='rm'){
+    const c={...P.c};const G=RM;const sum=(k,ph)=>G.filter(g=>g[6]<=ph).reduce((a,g)=>a+g[k]*(c[g[0]]||0),0);
+    c.far=0;c.p1=0;c.gra=0;
+    const hc1=sum(2,1);const needHC=(T.hc||0)-hc1;const farT=XROUND(needHC/14);steps.hc={have:hc1,need:needHC,per:14,raw:needHC/14,tot:farT,lbl:'cereales, tubérculos y legumbres'};
+    c.far=Math.max(0,farT-(c.leg||0)-(c.rep||0));
+    const p2=sum(3,2);const needP=(T.p||0)-p2;const prT=XROUND(needP/7);steps.p={have:p2,need:needP,per:7,raw:needP/7,tot:prT,lbl:'alimentos proteicos'};
+    c.p1=Math.max(0,prT-(c.p2||0)-(c.p3||0)-(c.p4||0)-(c.p5||0));
+    const g3=sum(4,3);const needG=(T.g||0)-g3;const grT=XROUND(needG/5);steps.g={have:g3,need:needG,per:5,raw:needG/5,tot:grT,lbl:'alimentos grasos'};
+    c.gra=grT;
+    rows=G.map(g=>({k:g[0],n:g[1],hc:g[2],p:g[3],g:g[4],kcal:g[5],ph:g[6],c:c[g[0]]||0}));
+    steps.warn=[];if(farT-(c.leg||0)-(c.rep||0)<0)steps.warn.push('Las legumbres y la repostería superan los intercambios de farináceos calculados.');
+    if(prT-(c.p2||0)-(c.p3||0)-(c.p4||0)-(c.p5||0)<0)steps.warn.push('Los proteicos II–V superan los intercambios proteicos calculados.');
+    if(needHC<0)steps.warn.push('Los grupos de la fase 1 ya superan los hidratos objetivo.');if(needG<0)steps.warn.push('Los grupos anteriores ya superan la grasa objetivo: reduce proteicos III–V o cambia los lácteos.');
+  }else{
+    const E=P.eq;const G=eqGroups();const hcT=XROUND((T.hc||0)/10);const fixed=(E.leche||0)+(E.ver||0)+(E.fru||0);
+    const har=Math.max(0,hcT-fixed);steps.hc={have:fixed*10,need:(T.hc||0),per:10,raw:(T.hc||0)/10,tot:hcT,lbl:'raciones de HC en total',har};
+    const lf=G[0][4];const pHave=(E.leche||0)*6+har*1.5;const needP=(T.p||0)-pHave;const prot=XROUND(needP/10);steps.p={have:pHave,need:needP,per:10,raw:needP/10,tot:prot,lbl:'alimentos proteicos'};
+    const gHave=(E.leche||0)*lf+prot*5;const needG=(T.g||0)-gHave;const gra=XROUND(needG/10);steps.g={have:gHave,need:needG,per:10,raw:needG/10,tot:gra,lbl:'grasas'};
+    const c={leche:E.leche||0,ver:E.ver||0,fru:E.fru||0,har,prot,gra};
+    rows=G.map(g=>({k:g[0],n:g[1],hc:g[2],p:g[3],g:g[4],kcal:g[5],ph:g[6],c:c[g[0]]}));
+    steps.warn=[];if(hcT-fixed<0)steps.warn.push('Leche, verduras y fruta ya superan las raciones de hidratos.');if(needG<0)steps.warn.push('La leche y los proteicos ya superan la grasa objetivo.');
+  }
+  const tot={hc:0,p:0,g:0,kcal:0};rows.forEach(r=>{tot.hc+=r.hc*r.c;tot.p+=r.p*r.c;tot.g+=r.g*r.c;tot.kcal+=r.kcal*r.c});
+  const dev={hc:tot.hc-T.hc,p:tot.p-T.p,g:tot.g-T.g,kcal:tot.kcal-T.kcal};
+  const inT=k=>Math.abs(dev[k])<=TOL[k]+1e-9;const nMac=['hc','p','g'].filter(inT).length;const okAll=(nMac>=2&&inT('kcal'))||nMac===3;
+  return {ok,T,rows,steps,tot,dev,inT,nMac,okAll,any:rows.some(r=>r.c>0)};
+}
+function critHTML(t,R){if(!R.target||R.P==null)return '';const dev={hc:t.hc-R.HC,p:t.p-R.P,g:t.gr-R.G,kcal:t.kcal-R.target};const inT=k=>Math.abs(dev[k])<=TOL[k];
+  const n=['hc','p','g'].filter(inT).length;const ok=(n>=2&&inT('kcal'))||n===3;
+  return `<div class="verdict ${ok?'bgok':'bgwn'}" style="font-size:.84rem"><b>${ok?'Ajustada':'No ajustada'}</b><span>según el criterio de clase: ±6 g HC, ±4 g P, ±3 g G, ±30 kcal (${n}/3 macronutrientes${inT('kcal')?' y la energía':''} dentro).</span></div>`}
+const nq=x=>fmt(x,(Math.round(x*100)%100)?2:0).replace(/(,\d)0$/,'$1');
+function renderPlan(){
+  const P=S.plan;$$('input[name="psys"]').forEach(r=>r.checked=r.value===P.sys);
+  const C=planCalc();const T=C.T;
+  $('#planFormula').innerHTML=C.ok?`Fórmula de la dieta (de Requerimientos): <b class="num">${fmt(T.kcal)} kcal</b> · HC <b class="num">${nq(T.hc)} g</b> · P <b class="num">${nq(T.p)} g</b> · G <b class="num">${nq(T.g)} g</b> <button class="btn sm ghost" type="button" data-goto="req">Cambiar</button>`
+    :`<div class="warnbox warn">Completa los requerimientos y el reparto de macronutrientes en la pestaña 1 para calcular los intercambios.</div>`;
+  const inp=(k,v,dis)=>dis?`<b class="num">${nq(v)}</b>`:`<input type="number" class="plan-in num" min="0" step="0.5" data-pk="${k}" value="${v||''}" placeholder="0" aria-label="Intercambios">`;
+  const stepRow=(st,txt)=>`<tr class="step"><td colspan="6">${txt}: tienes <b>${nq(st.have)} g</b>; faltan <b>${nq(st.need)} g</b> → ${nq(st.need)} / ${st.per} = ${nq(st.raw)} → <b>${nq(st.tot)}</b> ${st.lbl}</td></tr>`;
+  let h=`<table class="tbl"><thead><tr><th>Grupo</th><th class="n">Nº I</th><th class="n">HC (g)</th><th class="n">P (g)</th><th class="n">G (g)</th><th class="n">kcal</th></tr></thead><tbody>`;
+  const line=r=>{const editable=P.sys==='rm'?(r.ph===1||['leg','rep','p2','p3','p4','p5'].includes(r.k)):['leche','ver','fru'].includes(r.k);
+    return `<tr><td>${esc(r.n)}<div class="muted small mono">${nq(r.hc)} HC · ${nq(r.p)} P · ${nq(r.g)} G · ${nq(r.kcal)} kcal</div></td><td class="n">${inp(r.k,r.c,!editable)}</td><td class="n">${r.c?nq(r.hc*r.c):'·'}</td><td class="n">${r.c?nq(r.p*r.c):'·'}</td><td class="n">${r.c?nq(r.g*r.c):'·'}</td><td class="n">${r.c?nq(r.kcal*r.c):'·'}</td></tr>`};
+  const ph=n=>C.rows.filter(r=>r.ph===n);
+  if(P.sys==='rm'){
+    h+=`<tr class="grp-h"><td colspan="6">1 · Se pautan (lácteos 2–4 R/día, verduras ≥ 2, fruta ≥ 3, azúcares ocasional)</td></tr>`+ph(1).map(line).join('');
+    if(C.ok)h+=stepRow(C.steps.hc,'Hidratos');
+    h+=`<tr class="grp-h"><td colspan="6">2 · Cierran los hidratos (legumbres y repostería se restan de los farináceos)</td></tr>`+ph(2).map(line).join('');
+    if(C.ok)h+=stepRow(C.steps.p,'Proteínas');
+    h+=`<tr class="grp-h"><td colspan="6">3 · Cierran las proteínas (pon II–V; el resto va a I)</td></tr>`+ph(3).map(line).join('');
+    if(C.ok)h+=stepRow(C.steps.g,'Grasas');
+    h+=`<tr class="grp-h"><td colspan="6">4 · Cierran las grasas</td></tr>`+ph(4).map(line).join('');
+  }else{
+    h+=`<tr class="grp-h"><td colspan="6">1 · Raciones de hidratos (10 g): leche, verduras y fruta se pautan; el resto, harinas · Leche <select id="eqLeche" style="width:auto;padding:2px 4px">${Object.entries(EQ_LECHE).map(([k,v])=>`<option value="${k}" ${P.eq.lecheTipo===k?'selected':''}>${v[0]}</option>`).join('')}</select></td></tr>`;
+    if(C.ok)h+=`<tr class="step"><td colspan="6">Hidratos: ${nq(T.hc)} g / 10 = ${nq(T.hc/10)} → <b>${nq(C.steps.hc.tot)}</b> raciones de HC; menos leche, verduras y fruta = <b>${nq(C.steps.hc.har)}</b> de harinas</td></tr>`;
+    h+=ph(1).map(line).join('')+ph(2).map(line).join('');
+    if(C.ok)h+=stepRow(C.steps.p,'Proteínas (leche y harinas)');
+    h+=ph(3).map(line).join('');
+    if(C.ok)h+=stepRow(C.steps.g,'Grasas (leche y proteicos)');
+    h+=ph(4).map(line).join('');
+  }
+  h+=`<tr class="tot"><td>Total dieta</td><td></td><td class="n">${nq(C.tot.hc)}</td><td class="n">${nq(C.tot.p)}</td><td class="n">${nq(C.tot.g)}</td><td class="n">${nq(C.tot.kcal)}</td></tr></tbody></table>`;
+  $('#planTbl').innerHTML=h;
+  let v='';
+  if(C.ok){const cell=k=>`<td class="n"><span class="tag ${C.inT(k)?'ok':'bad'}" style="font-family:var(--f-num)">${C.dev[k]>=0?'+':'−'}${nq(Math.abs(C.dev[k]))}</span></td>`;
+    v=`<div class="scroll"><table class="tbl"><thead><tr><th></th><th class="n">HC (g)</th><th class="n">P (g)</th><th class="n">G (g)</th><th class="n">Energía (kcal)</th></tr></thead><tbody>
+      <tr><td>Fórmula de la dieta</td><td class="n">${nq(T.hc)}</td><td class="n">${nq(T.p)}</td><td class="n">${nq(T.g)}</td><td class="n">${nq(T.kcal)}</td></tr>
+      <tr><td>Totales propuestos</td><td class="n">${nq(C.tot.hc)}</td><td class="n">${nq(C.tot.p)}</td><td class="n">${nq(C.tot.g)}</td><td class="n">${nq(C.tot.kcal)}</td></tr>
+      <tr><td>Valores desviados</td>${cell('hc')}${cell('p')}${cell('g')}${cell('kcal')}</tr>
+      <tr><td class="muted">Rango de error recomendado</td><td class="n muted">±6</td><td class="n muted">±4</td><td class="n muted">±3</td><td class="n muted">±30</td></tr></tbody></table></div>
+      <div class="verdict ${C.okAll?'bgok':'bgwn'}" style="margin-top:8px"><b>${C.okAll?'Dieta ajustada':'Dieta no ajustada'}</b><span class="small">Criterio: al menos 2 de los 3 macronutrientes y la energía dentro del rango, o los 3 macronutrientes. Ahora: ${C.nMac}/3 macronutrientes${C.inT('kcal')?' y la energía':''}.</span></div>
+      <p class="muted small" style="margin:6px 0 0">Redondeo de intercambios: decimales ≤ 0,25 a la baja, ≥ 0,75 al alza y entre 0,26 y 0,74 a 0,5.${P.sys==='eq'?' En el método Clínic la proteína y la grasa de cada ración son aproximadas: el sistema se ajusta sobre todo a los hidratos.':''}</p>`;
+    C.steps.warn.forEach(w=>v=`<div class="warnbox warn" style="margin-bottom:8px">${esc(w)}</div>`+v)}
+  $('#planVerdict').innerHTML=v;
+  renderDist(C);renderPlanLists(C);
+}
+/* Reparto por comidas */
+const GCLASS=k=>/^lac|post|leche/.test(k)?'lac':k==='ver'?'ver':k==='fru'?'fru':/far|leg|rep|har|azu/.test(k)?'far':/^p\d|prot/.test(k)?'prot':'gra';
+const DW={bkf:{lac:1,ver:0,fru:1,far:1,prot:.3,gra:1},snk:{lac:1,ver:0,fru:1,far:.6,prot:.2,gra:.3},main:{lac:.2,ver:1,fru:1,far:1,prot:1,gra:1}};
+function distOf(k){const sysd=S.plan.dist[S.plan.sys]=S.plan.dist[S.plan.sys]||{};return sysd[k]=sysd[k]||{}}
+function renderDist(C){
+  const rows=C.rows.filter(r=>r.c>0);const meals=S.meals;
+  if(!rows.length){$('#distTbl').innerHTML='<p class="muted small">Pauta primero los intercambios.</p>';return}
+  const kc=meals.map(()=>0);let h=`<table class="tbl"><thead><tr><th>Grupo</th>${meals.map(m=>`<th class="n">${esc(m.name)}</th>`).join('')}<th class="n">Asignado</th></tr></thead><tbody>`;
+  for(const r of rows){const d=distOf(r.k);let s=0;
+    h+=`<tr><td>${esc(r.n)}</td>${meals.map((m,i)=>{const v=num(d[m.id])||0;s+=v;kc[i]+=v*r.kcal;return `<td class="n"><input type="number" class="dist-in num" min="0" step="0.5" data-dk="${r.k}" data-dm="${m.id}" value="${d[m.id]??''}" aria-label="${esc(r.n)} en ${esc(m.name)}"></td>`}).join('')}<td class="n"><span class="tag ${Math.abs(s-r.c)<1e-9?'ok':'warn'}" style="font-family:var(--f-num)">${nq(s)} / ${nq(r.c)}</span></td></tr>`}
+  const tk=kc.reduce((a,b)=>a+b,0);const sh=mealShares();
+  h+=`<tr class="tot"><td>Total valor calórico (kcal)</td>${kc.map(v=>`<td class="n">${fmt(v)}</td>`).join('')}<td class="n">${fmt(tk)}</td></tr>
+     <tr><td class="muted">Distribución (%)</td>${kc.map((v,i)=>`<td class="n">${tk?nf(v/tk*100,1):'—'}<div class="muted small">obj. ${fmt(sh[i],0)}</div></td>`).join('')}<td></td></tr></tbody></table>`;
+  $('#distTbl').innerHTML=h;
+}
+function distAuto(){const C=planCalc();const meals=S.meals;const sh=mealShares();
+  for(const r of C.rows.filter(r=>r.c>0)){const cl=GCLASS(r.k);const w=meals.map((m,i)=>DW[mealType(m,i)][cl]*sh[i]);const W=w.reduce((a,b)=>a+b,0)||1;
+    const a=w.map(x=>Math.round(r.c*x/W*2)/2);let diff=r.c-a.reduce((x,y)=>x+y,0);const order=w.map((x,i)=>[x,i]).sort((x,y)=>y[0]-x[0]);
+    let j=0;while(Math.abs(diff)>1e-9&&j<100){const i=order[j%order.length][1];const st=diff>0?0.5:-0.5;if(a[i]+st>=0){a[i]+=st;diff-=st}j++}
+    const d=distOf(r.k);meals.forEach((m,i)=>d[m.id]=a[i]?a[i]:'')}
+  renderPlan()}
+/* Listas de intercambio: importadas (CSV, solo en este navegador) o, para el método Clínic, las del artículo de referencia */
+let XLISTS=LS.get('dc_xlists',{rm:{},eq:{}});
+const EQ_BUILTIN={leche:[['Leche','200 ml','1 taza'],['Yogur','2 unidades','']],
+  har:[['Guisantes, habas','60 g',''],['Patata, boniato','50 g',''],['Legumbres (lentejas, garbanzos…)','20 g',''],['Pan, castañas','20 g',''],['Tostadas, cereales de desayuno','15 g',''],['Arroz, sémola, harina','15 g',''],['Pasta','15 g','']],
+  fru:[['Melón, sandía, fresas, pomelo','150 g',''],['Albaricoque, naranja, pera, mandarina, ciruelas, piña, kiwi, manzana','100 g',''],['Plátano, uva, cerezas, higos, chirimoya, nísperos','50 g','']],
+  ver:[['Escarola, lechuga, endivias, acelgas, espinacas, setas, espárragos, pepino, tomate, pimiento, col, berenjena, coliflor, calabacín, judías verdes','300 g',''],['Zanahoria, alcachofa, cebolla, remolacha, coles de Bruselas','150 g','']],
+  prot:[['Ternera, buey, pollo, conejo, cordero, cerdo','50 g',''],['Pescado blanco o azul, marisco','75 g',''],['Embutido','40 g',''],['Queso','40 g',''],['Huevo','1 unidad','']],
+  gra:[['Aceite, mayonesa','1 cucharada',''],['Mantequilla, margarina','10 g',''],['Aceitunas','40 g',''],['Nata, crema de leche','30 g',''],['Frutos secos','15 g','']]};
+function listFor(sys,k){const imp=(XLISTS[sys]||{})[k];if(imp&&imp.length)return {src:'imp',items:imp};if(sys==='eq'&&EQ_BUILTIN[k])return {src:'ref',items:EQ_BUILTIN[k].map(([n,q,m])=>({n,neto:q,med:m}))};return null}
+function renderPlanLists(C){
+  const sys=S.plan.sys;const rows=(C.any?C.rows.filter(r=>r.c>0):C.rows);let h='';let missing=[];
+  for(const r of rows){const L=listFor(sys,r.k);if(!L){missing.push(r.n);continue}
+    h+=`<div style="min-width:0"><h3 style="margin-bottom:2px">${esc(r.n)}</h3><div class="muted small" style="margin-bottom:6px">1 intercambio = ${nq(r.hc)} g HC · ${nq(r.p)} g P · ${nq(r.g)} g G · ${nq(r.kcal)} kcal${L.src==='ref'?' · Jansà y Vidal (2004)':' · lista importada'}</div>
+      <div class="scroll"><table class="tbl"><thead><tr><th>Alimento</th><th class="n">Peso neto</th>${L.items.some(i=>i.bruto)?'<th class="n">Peso bruto</th>':''}<th>Medida casera</th></tr></thead><tbody>${L.items.map(i=>`<tr><td>${esc(i.n)}</td><td class="n">${esc(i.neto)}</td>${L.items.some(x=>x.bruto)?`<td class="n">${esc(i.bruto||'')}</td>`:''}<td class="small">${esc(i.med||'')}</td></tr>`).join('')}</tbody></table></div></div>`}
+  $('#planLists').innerHTML=(h?`<div class="grid g2">${h}</div>`:'')+(missing.length?`<p class="muted small" style="margin:${h?'12px':'0'} 0 0">Sin lista para: ${esc(missing.join(', '))}. ${sys==='rm'?'Las listas de Russolillo y Marques (2008) son una obra protegida y no van incluidas: impórtalas desde tus apuntes en CSV y quedan guardadas solo en este navegador.':'Impórtala en CSV si la necesitas.'}</p>`:'');
+}
+function listImportModal(){
+  const keys=(S.plan.sys==='rm'?RM.map(g=>[g[0],g[1]]):eqGroups().map(g=>[g[0],g[1]]));
+  const md=openModal(`<div class="modal-h"><h2>Importar listas de intercambio</h2><button class="btn ghost sm" type="button" data-x>Cerrar</button></div>
+   <div class="stack"><p class="muted small" style="margin:0">Columnas (separador «;», «,» o tabulador): <span class="mono">grupo; alimento; peso_neto; peso_bruto; medida</span>. Se importan al sistema que tienes seleccionado (${S.plan.sys==='rm'?'Russolillo y Marques':'método Clínic'}). En «grupo» usa el nombre o la clave:</p>
+   <div class="small mono" style="background:var(--surface-2);padding:8px 10px;border-radius:6px;max-height:120px;overflow:auto">${keys.map(([k,n])=>`${k} = ${esc(n)}`).join('<br>')}</div>
+   <label class="fld"><span>Archivo</span><input type="file" id="xlFile" accept=".csv,.tsv,.txt,text/csv"></label>
+   <label class="fld"><span>O pega aquí el contenido</span><textarea id="xlTxt" rows="7" class="mono" placeholder="grupo;alimento;peso_neto;peso_bruto;medida&#10;fru;Manzana;120;130;1 unidad pequeña"></textarea></label>
+   <div id="xlPrev" class="small"></div></div>
+   <div class="modal-f"><button class="btn" type="button" data-x>Cancelar</button><button class="btn pri" type="button" id="xlGo" disabled>Importar</button></div>`);
+  let parsed=null;
+  const prev=()=>{const rows=parseCSV($('#xlTxt').value||'');if(rows.length<2){$('#xlPrev').innerHTML='';$('#xlGo').disabled=true;return}
+    const head=rows[0].map(x=>norm(x).trim().replace(/\s+/g,'_'));const ix=n=>head.findIndex(x=>n.includes(x));
+    const iG=ix(['grupo','group']),iN=ix(['alimento','nombre','food']),iNe=ix(['peso_neto','neto','peso']),iB=ix(['peso_bruto','bruto']),iM=ix(['medida','medida_casera','medida_culinaria']);
+    if(iG<0||iN<0||iNe<0){$('#xlPrev').innerHTML='<div class="warnbox bad">Faltan columnas: necesito al menos grupo, alimento y peso_neto.</div>';$('#xlGo').disabled=true;return}
+    const out={};let bad=0;rows.slice(1).forEach(r=>{const g=norm(r[iG]||'').trim();const key=(keys.find(([k,n])=>k===g||norm(n)===g)||[])[0];if(!key||!(r[iN]||'').trim()){bad++;return}
+      (out[key]=out[key]||[]).push({n:r[iN].trim(),neto:(r[iNe]||'').trim(),bruto:iB>=0?(r[iB]||'').trim():'',med:iM>=0?(r[iM]||'').trim():''})});
+    parsed=out;const n=Object.values(out).reduce((a,l)=>a+l.length,0);
+    $('#xlPrev').innerHTML=`<div class="warnbox ${n?'info':'bad'}">${n} alimentos en ${Object.keys(out).length} grupos${bad?` · ${bad} filas sin grupo reconocido`:''}.</div>`;$('#xlGo').disabled=!n};
+  $('#xlTxt').addEventListener('input',prev);
+  $('#xlFile').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{$('#xlTxt').value=r.result;prev()};r.readAsText(f,'UTF-8')});
+  md.addEventListener('click',e=>{if(e.target.closest('[data-x]'))closeModal();if(e.target.id==='xlGo'&&parsed){const sys=S.plan.sys;XLISTS[sys]=XLISTS[sys]||{};Object.entries(parsed).forEach(([k,l])=>XLISTS[sys][k]=l);LS.set('dc_xlists',XLISTS);closeModal();renderPlan();toast('Listas importadas')}});
+}
+$('#tab-xch').addEventListener('input',e=>{const t=e.target;
+  if(t.name==='psys'){S.plan.sys=t.value;renderPlan();return}
+  if(t.dataset.pk){const v=num(t.value)||0;if(S.plan.sys==='rm')S.plan.c[t.dataset.pk]=v;else S.plan.eq[t.dataset.pk]=v;renderPlanKeepFocus(t);return}
+  if(t.id==='eqLeche'){S.plan.eq.lecheTipo=t.value;renderPlan();return}
+  if(t.dataset.dk){distOf(t.dataset.dk)[t.dataset.dm]=t.value;renderPlanKeepFocus(t);return}});
+function renderPlanKeepFocus(t){const sel=t.dataset.pk?`[data-pk="${t.dataset.pk}"]`:`[data-dk="${t.dataset.dk}"][data-dm="${t.dataset.dm}"]`;const pos=t.selectionStart;renderPlan();const n=$(sel);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}
+$('#distAuto').addEventListener('click',distAuto);
+$('#distClear').addEventListener('click',()=>{S.plan.dist[S.plan.sys]={};renderPlan()});
+$('#listImport').addEventListener('click',listImportModal);
+$('#listClear').addEventListener('click',async()=>{if(await confirmBox('Borrar listas importadas',`<p>Se borrarán las listas importadas del sistema ${S.plan.sys==='rm'?'Russolillo y Marques':'Clínic'} en este navegador.</p>`,'Borrar',true)){XLISTS[S.plan.sys]={};LS.set('dc_xlists',XLISTS);renderPlan()}});
+
+/* Gramaje: ajustar la cantidad de un alimento para cerrar lo que falta del día */
+function fitModal(m,it){const f=FOODS.get(it.fid);const R=req();const dt=dayTot();const n=itemNut(it);
+  const opts=[['hc','Hidratos','g',R.HC],['p','Proteínas','g',R.P],['gr','Grasas','g',R.G],['kcal','Energía','kcal',R.target]].filter(o=>o[3]!=null&&f.v[o[0]]>0);
+  if(!opts.length){toast('Completa los requerimientos para ajustar');return}
+  const calc=k=>{const o=opts.find(x=>x[0]===k);const gap=o[3]-dt[k];const g=Math.max(0,n.g+gap/(f.v[k]/100));return {gap,g}};
+  const md=openModal(`<div class="modal-h"><h2>Ajustar ${esc(f.n.toLowerCase())}</h2><button class="btn ghost sm" type="button" data-x>Cerrar</button></div>
+   <p class="muted small" style="margin-top:0">Calcula la cantidad de este alimento que cierra lo que falta del día para el nutriente elegido, como al ajustar con pan, un alimento proteico o el aceite.</p>
+   <div class="stack">${opts.map(([k,l,u,t],i)=>{const c=calc(k);return `<label class="subopt" style="cursor:pointer"><span><input type="radio" name="fitk" value="${k}" ${i===0?'checked':''}> <b>${l}</b> · faltan <span class="num">${nq(c.gap)} ${u}</span> → <b class="num">${fmt(c.g)} g</b> de ${esc(f.n.toLowerCase())}${f.pc>0&&f.pc<1?` <span class="muted">(bruto ≈ ${fmt(c.g/f.pc)} g)</span>`:''}</span><span class="d">${nq(f.v[k])} ${u}/100 g</span></label>`}).join('')}</div>
+   <div class="modal-f"><button class="btn" type="button" data-x>Cancelar</button><button class="btn pri" type="button" data-fit>Aplicar</button></div>`,'sm');
+  md.addEventListener('click',e=>{if(e.target.closest('[data-x]'))return closeModal();if(!e.target.closest('[data-fit]'))return;
+    const k=md.querySelector('input[name="fitk"]:checked').value;const c=calc(k);Object.assign(it,{mode:'g',q:Math.round(c.g*10)/10});closeModal();renderMeals();toast(`${f.n}: ${fmt(c.g)} g`)});
+}
+
 /* ============ Ejemplo y arranque ============ */
 function loadExample(){
-  Object.assign(S,{p:{sex:'m',age:34,w:65,h:165,ffm:null,bf:null},formula:'mifflin',af:'1.55',afCustom:null,goal:'perd',adjMode:'pct',adj:15,manual:null,macroMode:'pct',mp:20,mh:50,mg:30,example:true});
+  Object.assign(S,{p:{sex:'m',age:34,w:65,h:165,ffm:null,bf:null},formula:'mifflin',af:'1.55',afCustom:null,goal:'perd',adjMode:'kcal',adj:500,manual:null,macroMode:'pct',mp:20,mh:50,mg:30,example:true});
   S.restr=new Set();S.meals=[];setMealCount(5);
   const add=(mi,fid,mode,q,mIdx=0)=>S.meals[mi].items.push({id:uid(),fid,mode,q,mi:mIdx,forced:false});
   add(0,'lechesemi','med',1);add(0,'avena','g',40);add(0,'platano','med',1);
