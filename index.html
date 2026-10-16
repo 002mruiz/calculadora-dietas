@@ -1717,7 +1717,9 @@ applyTheme();renderFoodSel();loadExample();syncForm();renderRestr();renderCons()
 
 <script>
 if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostname==='localhost')){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}));
+  // Cuando se instala una versión nueva, la página se recarga una vez para mostrarla
+  let recargada=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!recargada){recargada=true;location.reload()}});
 }
 </script>
 </body></html>
