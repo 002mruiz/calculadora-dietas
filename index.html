@@ -314,8 +314,21 @@ table{border-collapse:collapse;width:100%}
             <div class="fld"><span>IMC</span><div class="num" id="imc" style="padding:7px 0">—</div></div>
           </div>
           <div class="row-f">
+            <label class="fld" style="width:250px"><span>Peso para el cálculo</span>
+              <select id="wMode">
+                <option value="auto">Automático (corregido si IMC ≥ 25 en pérdida)</option>
+                <option value="actual">Peso actual</option>
+                <option value="corregido">Peso corregido</option>
+                <option value="deseable">Peso deseable</option>
+              </select></label>
+            <label class="fld w-s"><span>IMC deseable</span><input type="number" id="imcDes" min="18.5" max="25" step="0.1"></label>
+            <label class="fld w-s"><span>Peso deseable · opc.</span><input type="number" id="desManual" min="20" max="200" step="0.1" placeholder="auto"></label>
+            <label class="fld w-s"><span>Factor corrección</span><input type="number" id="corrF" min="0" max="1" step="0.05"></label>
+          </div>
+          <div class="row-f">
             <label class="fld w-l"><span>Fórmula de gasto en reposo</span>
               <select id="formula">
+                <option value="aprox">Método de aproximaciones (0,9 / 1 kcal/kg/h)</option>
                 <option value="mifflin">Mifflin-St Jeor (1990)</option>
                 <option value="hb">Harris-Benedict revisada (Roza y Shizgal, 1984)</option>
                 <option value="schofield">Schofield (1985) · por peso</option>
@@ -335,6 +348,10 @@ table{border-collapse:collapse;width:100%}
                 <option value="custom">Otro valor…</option>
               </select></label>
             <label class="fld w-s" id="afCustomWrap" hidden><span>Factor</span><input type="number" id="afCustom" min="1" max="3" step="0.01"></label>
+            <button class="btn sm" type="button" id="btnPal" style="margin-bottom:3px">Calcular PAL por actividades</button>
+          </div>
+          <div class="row-f">
+            <label class="chk"><input type="checkbox" id="tid"> Sumar termogénesis inducida por la dieta (TID = 10 % del GER): GET = GER × PAL + TID</label>
           </div>
           <div class="row-f">
             <div class="fld"><span>Objetivo</span>
@@ -359,7 +376,7 @@ table{border-collapse:collapse;width:100%}
             <div class="row-f" id="mmGkg" hidden>
               <label class="fld w-s"><span><i class="dot p"></i>Proteínas g/kg</span><input type="number" id="gp" min="0" max="5" step="0.1"></label>
               <label class="fld w-s"><span><i class="dot g"></i>Grasas g/kg</span><input type="number" id="gg" min="0" max="5" step="0.1"></label>
-              <label class="fld" style="width:160px"><span>Sobre</span><select id="gkBase"><option value="peso">Peso total</option><option value="ffm">Masa magra</option></select></label>
+              <label class="fld" style="width:160px"><span>Sobre</span><select id="gkBase"><option value="peso">Peso actual</option><option value="calc">Peso de cálculo</option><option value="ffm">Masa magra</option></select></label>
               <div class="fld"><span><i class="dot hc"></i>Hidratos</span><div class="muted small" style="padding:7px 0">por diferencia</div></div>
             </div>
           </div>
@@ -684,7 +701,7 @@ function compatTags(f,c){
 
 /* ============ Estado (solo en memoria) ============ */
 const S={p:{sex:'',age:null,w:null,h:null,ffm:null,bf:null},formula:'mifflin',af:'1.55',afCustom:null,goal:'perd',adjMode:'pct',adj:15,manual:null,
-  macroMode:'pct',mp:20,mh:50,mg:30,gp:1.6,gg:1,gkBase:'peso',restr:new Set(),meals:[],showBad:false,example:false,
+  macroMode:'pct',mp:20,mh:50,mg:30,gp:1.6,gg:1,gkBase:'peso',wMode:'auto',imcDes:22.5,desManual:null,corrF:0.25,tid:false,palRows:null,restr:new Set(),meals:[],showBad:false,example:false,
   pref:{excl:new Set(),allowUnv:false,fruitMain:true,dairy:true}};
 const DEFAULT_MEALS=['Desayuno','Media mañana','Comida','Merienda','Cena','Recena','Comida 7','Comida 8'];
 
@@ -697,8 +714,19 @@ const RANGE_LBL=['0–3','3–10','10–18','18–30','30–60','≥60'];
 function getFFM(){const {w,ffm,bf}=S.p;if(ffm>0)return ffm;if(w>0&&bf>0&&bf<70)return w*(1-bf/100);return null}
 const nf=(x,d=2)=>fmt(x,d).replace(/\s/g,'');
 const trim0=s=>s.includes(',')?s.replace(/0+$/,'').replace(/,$/,''):s;
+/* Peso de referencia: deseable = IMC deseable × talla²; corregido = deseable + factor × (actual − deseable) */
+const WMODE_LBL={actual:'peso actual',corregido:'peso corregido',deseable:'peso deseable'};
+function seedo(imc){if(imc==null)return '';return imc<18.5?'Peso insuficiente':imc<25?'Normopeso':imc<27?'Sobrepeso grado I':imc<30?'Sobrepeso grado II (preobesidad)':imc<35?'Obesidad tipo I':imc<40?'Obesidad tipo II':imc<50?'Obesidad tipo III (mórbida)':'Obesidad tipo IV (extrema)'}
+function weights(){const {w,h}=S.p;const imc=w>0&&h>0?w/((h/100)**2):null;
+  const desCalc=h>0&&S.imcDes>0?S.imcDes*(h/100)**2:null;const des=S.desManual>0?S.desManual:desCalc;
+  const cor=des!=null&&w>0?des+(S.corrF??0.25)*(w-des):null;
+  let mode=S.wMode;if(mode==='auto')mode=(imc!=null&&imc>=25&&S.goal==='perd')?'corregido':'actual';
+  let calc=mode==='deseable'?des:mode==='corregido'?cor:w;if(!(calc>0)){calc=w;mode='actual'}
+  return {imc,des,desCalc,cor,mode,calc,exc:w>0&&des!=null?w-des:null}}
 function formulas(){
-  const {sex,age,w,h}=S.p;const ffm=getFFM();const out=[];
+  const {sex,age,h}=S.p;const ffm=getFFM();const out=[];const WT=weights();const w=WT.calc;
+  if(sex&&w>0){const f=sex==='h'?1:0.9;out.push({k:'aprox',n:'Método de aproximaciones',v:f*w*24,expr:`${sex==='h'?'1':'0,9'} kcal/kg/h × ${nf(w,1)} kg × 24 h`})}
+  else out.push({k:'aprox',n:'Método de aproximaciones',v:null,miss:'Faltan sexo o peso'});
   const basic=sex&&age>0&&w>0&&h>0;
   const miss='Faltan sexo, edad, peso o talla';
   out.push(basic?{k:'mifflin',n:'Mifflin-St Jeor (1990)',v:10*w+6.25*h-5*age+(sex==='h'?5:-161),expr:`10 × ${nf(w,1)} + 6,25 × ${nf(h,1)} − 5 × ${age} ${sex==='h'?'+ 5':'− 161'}`}:{k:'mifflin',n:'Mifflin-St Jeor (1990)',v:null,miss});
@@ -716,23 +744,25 @@ function formulas(){
   return out;
 }
 function getAF(){if(S.af==='custom')return S.afCustom>0?S.afCustom:null;return +S.af}
+const tidOf=bmr=>S.tid&&bmr?0.1*bmr:0;
 function req(){
   const fs=formulas();const sel=fs.find(x=>x.k===S.formula);const bmr=sel?.v??null;const af=getAF();
-  const get=bmr&&af?bmr*af:null;let target=null,adjK=0;
+  const get=bmr&&af?bmr*af+tidOf(bmr):null;let target=null,adjK=0;
   if(get){if(S.goal==='mant')target=get;else{adjK=S.adjMode==='pct'?get*(S.adj||0)/100:(S.adj||0);target=S.goal==='perd'?get-adjK:get+adjK}}
   const manual=S.manual>0;if(manual)target=S.manual;
   const warn=[];let P=null,HC=null,G=null;
   if(target){
     if(S.macroMode==='pct'){P=target*(S.mp||0)/100/4;HC=target*(S.mh||0)/100/4;G=target*(S.mg||0)/100/9;
       const s=(S.mp||0)+(S.mh||0)+(S.mg||0);if(Math.abs(s-100)>0.01)warn.push(['bad',`El reparto suma ${fmt(s,0)} %, no 100 %.`])}
-    else{const base=S.gkBase==='ffm'?getFFM():S.p.w;
+    else{const base=S.gkBase==='ffm'?getFFM():S.gkBase==='calc'?weights().calc:S.p.w;
       if(!base)warn.push(['bad',S.gkBase==='ffm'?'Para g/kg de masa magra introduce la masa magra o el % de grasa.':'Introduce el peso.']);
       else{P=(S.gp||0)*base;G=(S.gg||0)*base;HC=(target-4*P-9*G)/4;if(HC<0)warn.push(['bad','Proteínas y grasas superan el objetivo calórico: los hidratos quedan en negativo.'])}}
   }
   if(bmr&&target&&target<bmr)warn.push(['warn',`El objetivo (${fmt(target)} kcal) queda por debajo del gasto en reposo (${fmt(bmr)} kcal).`]);
   if(S.p.age&&S.p.age<18&&(S.formula==='mifflin'||S.formula==='hb'))warn.push(['warn','Mifflin-St Jeor y Harris-Benedict están validadas en adultos. En menores usa Schofield o FAO/OMS.']);
   if(sel&&!sel.v)warn.push(['warn',`${sel.n}: ${sel.miss}.`]);
-  return {fs,sel,bmr,af,get,target,adjK,manual,P,HC,G,warn};
+  const WT=weights();if(S.wMode!=='auto'&&S.wMode!=='actual'&&WT.exc!=null&&WT.exc<0)warn.push(['warn','El peso actual es inferior al deseable: el peso corregido no tiene sentido en este caso.']);
+  return {fs,sel,bmr,af,get,target,adjK,manual,P,HC,G,warn,WT};
 }
 
 function renderRestr(){
@@ -754,11 +784,26 @@ function renderReq(){
     <div class="kpi"><div class="label">Gasto en reposo</div><div class="v">${fmt(R.bmr)} <small>kcal</small></div></div>
     <div class="kpi"><div class="label">Gasto total · × ${R.af?trim0(fmt(R.af,3)):'—'}</div><div class="v">${fmt(R.get)} <small>kcal</small></div></div>
     <div class="kpi main"><div class="label">Objetivo${R.manual?' (fijado a mano)':''}</div><div class="v">${fmt(R.target)} <small>kcal</small></div></div></div>`;
+  {const WT=R.WT;if(WT.imc!=null){
+    const d=WT.des,usesW=R.sel&&!['katch','cunningham'].includes(R.sel.k);
+    h+=`<div><div class="label" style="margin-bottom:4px">Peso de referencia</div><div class="scroll"><table class="tbl"><tbody>
+      <tr><td>IMC actual</td><td class="n">${nf(WT.imc,2)} kg/m²</td><td class="small">${seedo(WT.imc)}</td></tr>
+      <tr${WT.mode==='deseable'&&usesW?' class="sel"':''}><td>Peso deseable</td><td class="n">${nf(d,1)} kg</td><td class="small mono">${S.desManual>0?`fijado a mano (IMC ${nf(S.imcDes,1)} → ${nf(WT.desCalc,2)} kg)`:`${nf(S.imcDes,1)} × ${nf(S.p.h/100,2)}²`}</td></tr>
+      <tr${WT.mode==='corregido'&&usesW?' class="sel"':''}><td>Peso corregido</td><td class="n">${nf(WT.cor,1)} kg</td><td class="small mono">${nf(d,1)} + ${nf(S.corrF,2)} × (${nf(S.p.w,1)} − ${nf(d,1)})</td></tr>
+      <tr${WT.mode==='actual'&&usesW?' class="sel"':''}><td>Peso actual</td><td class="n">${nf(S.p.w,1)} kg</td><td class="small">${WT.exc>0?`exceso ${nf(WT.exc,1)} kg`:''}</td></tr>
+    </tbody></table></div><p class="muted small" style="margin:4px 0 0">${usesW?`Las fórmulas usan el <b>${WMODE_LBL[WT.mode]}</b> (${nf(WT.calc,1)} kg)${S.wMode==='auto'?' (selección automática)':''}.`:'La fórmula elegida usa la masa magra, no el peso.'}</p></div>`}}
   if(R.sel&&R.sel.v){
     let extra='';
     if(!R.manual&&R.get&&S.goal!=='mant')extra=` · ${S.goal==='perd'?'−':'+'} ${fmt(R.adjK)} kcal${S.adjMode==='pct'?` (${fmt(S.adj,0)} %)`:''}`;
     h+=`<div><div class="label" style="margin-bottom:4px">Cálculo</div><div class="expr">GER = ${R.sel.expr} = ${fmt(R.sel.v,1)} kcal</div>
-        <div class="expr" style="margin-top:4px">GET = ${fmt(R.sel.v,1)} × ${R.af?fmt(R.af,3):'—'} = ${fmt(R.get,1)} kcal${extra}</div></div>`;
+        <div class="expr" style="margin-top:4px">GET = ${fmt(R.sel.v,1)} × ${R.af?trim0(fmt(R.af,3)):'—'}${S.tid?` + ${fmt(tidOf(R.sel.v),1)} (TID)`:''} = ${fmt(R.get,1)} kcal${extra}</div>
+        ${!R.manual&&R.get&&S.goal==='perd'?`<div class="expr" style="margin-top:4px">Objetivo = ${fmt(R.get,1)} − ${fmt(R.adjK,1)} = ${fmt(R.target,1)} kcal</div>`:''}</div>`;
+    if(S.goal==='perd'&&R.get&&R.target&&R.get>R.target){const def=R.get-R.target;const WT=R.WT;
+      const rowT=(lbl,kg)=>{const kc=kg*7200,dd=kc/def;return `<tr><td>${lbl}</td><td class="n">${nf(kg,1)} kg</td><td class="n">${fmt(kc)} kcal</td><td class="n">${fmt(dd)} d</td><td class="n">${nf(dd/7,1)} sem</td><td class="n">≈ ${nf(dd/30.44,1)} meses</td></tr>`};
+      let rows='';if(WT.exc>0)rows+=rowT('Exceso de peso (hasta el deseable)',WT.exc);
+      if(S.p.w>0)rows+=rowT('Objetivo 5 % del peso actual',S.p.w*0.05)+rowT('Objetivo 10 % del peso actual',S.p.w*0.10);
+      if(rows)h+=`<div><div class="label" style="margin-bottom:4px">Tiempo estimado con un déficit de ${fmt(def)} kcal/día</div><div class="scroll"><table class="tbl"><tbody>${rows}</tbody></table></div>
+        <p class="muted small" style="margin:4px 0 0">Estimación teórica: 7.200 kcal por kg de peso perdido, déficit constante. 1 mes = 30,44 días (si se usan 4 semanas por mes, el resultado sale algo mayor). ${R.get>2000?'Con un GET superior a 2.000 kcal suele aplicarse una restricción de 500 kcal.':''}</p></div>`}
   }
   for(const [t,m] of R.warn)h+=`<div class="warnbox ${t}">${esc(m)}</div>`;
   // macros
@@ -770,8 +815,8 @@ function renderReq(){
   }
   // comparativa
   h+=`<div><div class="label" style="margin-bottom:4px">Comparativa de fórmulas</div><div class="scroll"><table class="tbl"><thead><tr><th>Fórmula</th><th class="n">GER</th><th class="n">GET</th><th class="n">vs. elegida</th></tr></thead><tbody>${
-    R.fs.map(f=>`<tr class="clk ${f.k===S.formula?'sel':''}" data-pickf="${f.k}"><td>${esc(f.n)}${f.v==null?`<div class="muted small">${esc(f.miss)}</div>`:''}</td><td class="n">${fmt(f.v)}</td><td class="n">${f.v&&R.af?fmt(f.v*R.af):'—'}</td><td class="n">${f.v&&R.bmr&&f.k!==S.formula?(f.v>=R.bmr?'+':'−')+fmt(Math.abs(f.v-R.bmr)):(f.k===S.formula?'elegida':'—')}</td></tr>`).join('')}</tbody></table></div>
-    <p class="muted small" style="margin:6px 0 0">Toca una fila para usar esa fórmula. Unidades: peso en kg, talla en cm, edad en años, resultado en kcal/día. Harris-Benedict usa la revisión de Roza y Shizgal; Schofield y FAO/OMS/UNU solo usan el peso por tramo de edad. El factor de actividad se aplica igual a todas.</p></div>`;
+    R.fs.map(f=>`<tr class="clk ${f.k===S.formula?'sel':''}" data-pickf="${f.k}"><td>${esc(f.n)}${f.v==null?`<div class="muted small">${esc(f.miss)}</div>`:''}</td><td class="n">${fmt(f.v)}</td><td class="n">${f.v&&R.af?fmt(f.v*R.af+tidOf(f.v)):'—'}</td><td class="n">${f.v&&R.bmr&&f.k!==S.formula?(f.v>=R.bmr?'+':'−')+fmt(Math.abs(f.v-R.bmr)):(f.k===S.formula?'elegida':'—')}</td></tr>`).join('')}</tbody></table></div>
+    <p class="muted small" style="margin:6px 0 0">Toca una fila para usar esa fórmula. Unidades: peso en kg, talla en cm, edad en años, resultado en kcal/día. Harris-Benedict usa la revisión de Roza y Shizgal; Schofield y FAO/OMS/UNU solo usan el peso por tramo de edad. El factor de actividad${'${S.tid?" y la TID se aplican":" se aplica"}'} igual a todas. Las fórmulas por peso usan el peso de referencia elegido.</p></div>`;
   $('#reqOut').innerHTML=h;
   updateStatus();
 }
@@ -1109,6 +1154,7 @@ function syncForm(){
   $$('input[name="goal"]').forEach(r=>r.checked=r.value===S.goal);$('#adj').value=S.adj??'';$('#adjMode').value=S.adjMode;$('#manual').value=S.manual??'';
   $$('input[name="mm"]').forEach(r=>r.checked=r.value===S.macroMode);$('#mmPct').hidden=S.macroMode!=='pct';$('#mmGkg').hidden=S.macroMode!=='gkg';
   ['mp','mh','mg','gp','gg'].forEach(k=>$('#'+k).value=S[k]??'');$('#gkBase').value=S.gkBase;
+  $('#wMode').value=S.wMode;$('#imcDes').value=S.imcDes??'';$('#desManual').value=S.desManual??'';$('#corrF').value=S.corrF??'';$('#tid').checked=!!S.tid;
   $('#exBanner').hidden=!S.example;
 }
 $('#reqForm').addEventListener('input',e=>{const t=e.target;
@@ -1117,7 +1163,29 @@ $('#reqForm').addEventListener('input',e=>{const t=e.target;
   else if(t.name==='goal')S.goal=t.value;else if(t.id==='adj')S.adj=num(t.value);else if(t.id==='adjMode')S.adjMode=t.value;else if(t.id==='manual')S.manual=num(t.value);
   else if(t.name==='mm'){S.macroMode=t.value;$('#mmPct').hidden=S.macroMode!=='pct';$('#mmGkg').hidden=S.macroMode!=='gkg'}
   else if(['mp','mh','mg','gp','gg'].includes(t.id))S[t.id]=num(t.value);else if(t.id==='gkBase')S.gkBase=t.value;
+  else if(t.id==='wMode')S.wMode=t.value;else if(['imcDes','desManual','corrF'].includes(t.id))S[t.id]=num(t.value);else if(t.id==='tid')S.tid=t.checked;
+  if(t.id==='formula'&&t.value==='aprox'&&!S.tid){S.tid=true;$('#tid').checked=true;toast('Con el método de aproximaciones se suma la TID (10 % del GER). Puedes desmarcarla.')}
   renderReq()});
+function palModal(){
+  if(!S.palRows)S.palRows=[['Dormir y estar en la cama',8,1],['','',''],['','',''],['','',''],['','',''],['','','']];
+  const md=openModal(`<div class="modal-h"><h2>PAL por registro de actividades</h2><button class="btn ghost sm" type="button" data-x>Cerrar</button></div>
+   <p class="muted small" style="margin-top:0">PAL = Σ (horas × PAR) / 24. Introduce los valores PAR de la tabla que uses en consulta.</p>
+   <div class="scroll"><table class="tbl" id="palT"></table></div>
+   <div class="row-f" style="margin-top:8px"><button class="btn sm" type="button" data-add>Añadir actividad</button><span style="flex:1"></span><div id="palRes" class="num"></div></div>
+   <div class="modal-f"><button class="btn" type="button" data-x>Cancelar</button><button class="btn pri" type="button" data-use>Usar este PAL</button></div>`);
+  const calc=()=>{let hs=0,tot=0;S.palRows.forEach(r=>{const hh=num(r[1])||0,pr=num(r[2])||0;hs+=hh;tot+=hh*pr});return {hs,tot,pal:tot/24}};
+  const draw=()=>{$('#palT').innerHTML=`<thead><tr><th>Actividad</th><th class="n">Horas</th><th class="n">PAR</th><th class="n">Total</th><th></th></tr></thead><tbody>${S.palRows.map((r,i)=>`<tr><td><input type="text" data-pi="${i}" data-pc="0" value="${esc(r[0])}" style="min-width:150px"></td><td class="n"><input type="number" step="0.25" min="0" data-pi="${i}" data-pc="1" value="${r[1]}" style="width:72px"></td><td class="n"><input type="number" step="0.1" min="0" data-pi="${i}" data-pc="2" value="${r[2]}" style="width:72px"></td><td class="n" data-pt="${i}"></td><td><button class="rm" type="button" data-pdel="${i}" aria-label="Quitar">×</button></td></tr>`).join('')}</tbody>`;upd()};
+  const upd=()=>{S.palRows.forEach((r,i)=>{const el=$(`[data-pt="${i}"]`);if(el){const t=(num(r[1])||0)*(num(r[2])||0);el.textContent=t?nf(t,2).replace(/,00$/,''):''}});
+    const c=calc();$('#palRes').innerHTML=`Horas: <b class="${Math.abs(c.hs-24)<0.01?'ok':'bd'}">${nf(c.hs,2).replace(/,00$/,'')}</b> / 24 · Σ ${nf(c.tot,2).replace(/,00$/,'')} · PAL = <b>${c.tot?nf(c.pal,2):'—'}</b>`;
+    md.querySelector('[data-use]').disabled=!(Math.abs(c.hs-24)<0.01&&c.tot>0)};
+  draw();
+  md.addEventListener('input',e=>{const t=e.target;if(t.dataset.pi==null)return;S.palRows[+t.dataset.pi][+t.dataset.pc]=t.value;upd()});
+  md.addEventListener('click',e=>{if(e.target.closest('[data-x]'))return closeModal();
+    if(e.target.closest('[data-add]')){S.palRows.push(['','','']);draw();return}
+    const d=e.target.closest('[data-pdel]');if(d){S.palRows.splice(+d.dataset.pdel,1);draw();return}
+    if(e.target.closest('[data-use]')){const c=calc();S.af='custom';S.afCustom=Math.round(c.pal*100)/100;closeModal();syncForm();renderReq();toast(`PAL ${nf(S.afCustom,2)} aplicado`)}});
+}
+$('#btnPal').addEventListener('click',palModal);
 $('#reqOut').addEventListener('click',e=>{const r=e.target.closest('[data-pickf]');if(r){S.formula=r.dataset.pickf;$('#formula').value=S.formula;renderReq()}});
 $('#restrBox').addEventListener('change',e=>{const c=e.target.closest('[data-restr]');if(!c)return;const k=c.dataset.restr;c.checked?S.restr.add(k):S.restr.delete(k);
   const newly=S.meals.flatMap(m=>m.items).filter(it=>compat(FOODS.get(it.fid)).st==='bad').length;
@@ -1653,4 +1721,3 @@ if('serviceWorker' in navigator && (location.protocol==='https:'||location.hostn
 }
 </script>
 </body></html>
-
