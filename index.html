@@ -1981,7 +1981,7 @@ const FFQ=[
 const TOMAS=['Desayuno','Media mañana','Comida','Merienda','Cena','Recena','Entre horas'];
 const PREPS=['','Crudo','Cocido o hervido','Plancha','Horno','Frito','Guisado','Vapor','Microondas','Otro'];
 const FORGOT=[['beb','Bebidas: agua, café, infusiones, refrescos, zumos'],['alc','Bebidas alcohólicas'],['azu','Azúcar, miel o edulcorante en bebidas'],['ace','Aceite, mantequilla o salsas añadidas'],['pan','Pan en las comidas'],['pic','Picoteo entre horas o mientras cocinaba'],['dul','Dulces, galletas, chocolate o snacks'],['fru','Fruta o frutos secos'],['sup','Suplementos o batidos'],['fuera','Lo comido fuera de casa']];
-S.ing={view:'ffq',ffq:{},r24:{date:'',habitual:'',motivo:'',items:[],checks:{}},reg:{date:'',items:[]}};
+S.ing={view:'ffq',ffq:{},ffqObs:'',r24:{date:'',habitual:'',motivo:'',items:[],checks:{}},reg:{date:'',items:[]}};
 
 function ffqSummary(){const A=S.ing.ffq;let answered=0;
   const groups=FFQ.map(([k,n,rec,items])=>{let sum=0,any=false;const its=items.map(([id,name,rac])=>{const w=FFQ_W[A[id]||''];if(w!=null){any=true;answered++;sum+=w}return {id,name,rac,w}});
@@ -1996,8 +1996,9 @@ function renderFFQ(){const A=S.ing.ffq;const sm=ffqSummary();
   const beb=sm.groups.find(g=>g.k==='beb');const bebRows=beb.items.filter(i=>i.w!=null).map(i=>`<tr><td>${esc(i.name)}</td><td class="n">${i.w>=7?nf(i.w/7,1).replace(/,0$/,'')+' al día':nf(i.w,1).replace(/,0$/,'')+' a la semana'}</td></tr>`).join('');
   const alc=['cerveza','vino','destilados'].reduce((a,id)=>a+(FFQ_W[A[id]||'']||0),0);
   return `<div class="card"><div class="card-h"><h2>Cuestionario de frecuencia de consumo</h2>
-      <div class="row-f" style="gap:8px"><button class="btn sm pri" type="button" data-ingpdf="ffq-blank">PDF en blanco para el paciente</button><button class="btn sm" type="button" data-ingpdf="ffq-filled" ${sm.answered?'':'disabled'}>PDF con respuestas</button><button class="btn sm ghost" type="button" data-ingclear="ffq">Vaciar respuestas</button></div></div>
-    <p class="muted small" style="margin:0">Envía el PDF en blanco al paciente. Cuando te lo devuelva, marca aquí sus respuestas para ver cuántas raciones toma de cada grupo frente a lo recomendado. Es un cuestionario orientativo para la consulta, no un cuestionario validado.</p></div>
+      <div class="row-f" style="gap:8px"><button class="btn sm pri" type="button" data-ingpdf="ffq-blank">PDF rellenable para el paciente</button><label class="btn sm filebtn">Importar respuestas (PDF)<input type="file" accept="application/pdf,.pdf" data-pdfimp="ffq"></label><button class="btn sm" type="button" data-ingpdf="ffq-filled" ${sm.answered?'':'disabled'}>PDF con respuestas</button><button class="btn sm ghost" type="button" data-ingclear="ffq">Vaciar respuestas</button></div></div>
+    <p class="muted small" style="margin:0">Envía el PDF rellenable al paciente: lo marca en el ordenador o en el móvil, lo guarda y te lo devuelve. Con «Importar respuestas (PDF)» se marcan solas aquí. Si lo rellena a mano en papel, marca tú las respuestas. Es un cuestionario orientativo para la consulta, no un cuestionario validado.</p>
+    ${S.ing.ffqObs?`<div class="warnbox info small" style="margin-top:10px"><b>Observaciones del paciente:</b> ${esc(S.ing.ffqObs)}</div>`:''}</div>
    <div class="grid g2">
     <div class="card"><div class="card-h"><h2>Respuestas</h2><span class="muted small">${sm.answered} de ${sm.total} alimentos</span></div>${left}</div>
     <div class="card side" style="align-self:start"><div class="card-h"><h2>Resumen por grupos</h2></div>
@@ -2020,15 +2021,16 @@ function ingRow(key,it){const f=it.fid?FOODS.get(it.fid):null;const n=ingNut(it)
   const qty=f?`<div style="display:flex;gap:4px"><input type="number" class="iq num" min="0" step="any" value="${it.q}" data-if="q" aria-label="Cantidad"><select class="unit" data-if="unit" aria-label="Unidad">${unitOptions(f,it)}</select></div><div class="muted small">${fmt(n.g)} g${f.pc>0&&f.pc<1?` · bruto ≈ ${fmt(n.g/f.pc)} g`:''}</div>`
     :`<input type="text" value="${esc(it.qtxt||'')}" data-if="qtxt" placeholder="p. ej., 1 plato" aria-label="Cantidad" style="width:150px">`;
   return `<tr data-iu="${it.id}"><td>${tomaSel}</td><td><input type="time" class="ihora" value="${esc(it.hora||'')}" data-if="hora" aria-label="Hora"></td>
-   <td style="min-width:190px"><div>${f?esc(f.n):esc(it.txt||'')}${f&&f.b?` <span class="muted small">· ${esc(f.b)}</span>`:''}</div><div class="chips" style="gap:4px;margin-top:2px">${!f?'<span class="tag warn">Sin datos nutricionales</span>':''}${it.auto?'<span class="tag warn">Coincidencia automática: revisa</span>':''}${f&&incomplete(f)?'<span class="tag warn">Datos incompletos</span>':''}<button class="btn ghost sm" type="button" data-iact="change" style="padding:0 4px;font-size:.75rem">${f?'Cambiar':'Buscar en la base'}</button></div></td>
+   <td style="min-width:190px"><div>${f?esc(f.n):esc(it.txt||'')}${f&&f.b?` <span class="muted small">· ${esc(f.b)}</span>`:''}</div><div class="chips" style="gap:4px;margin-top:2px">${!f?'<span class="tag warn">Sin datos nutricionales</span>':''}${it.auto?'<span class="tag warn">Coincidencia automática: revisa</span>':''}${it.rawQty?`<span class="tag">Escribió: ${esc(it.src||'')} · ${esc(it.rawQty)}</span>`:''}${f&&!(+it.q>0)?'<span class="tag bad">Falta la cantidad</span>':''}${f&&incomplete(f)?'<span class="tag warn">Datos incompletos</span>':''}<button class="btn ghost sm" type="button" data-iact="change" style="padding:0 4px;font-size:.75rem">${f?'Cambiar':'Buscar en la base'}</button></div></td>
    <td>${qty}</td><td>${prep}</td><td><input type="text" value="${esc(it.lugar||'')}" data-if="lugar" placeholder="Casa, trabajo…" aria-label="Lugar" style="width:110px"></td>
    <td class="n num">${f?fmt(n.kcal):'—'}</td><td class="n num cp">${f?fmt(n.p,1):'—'}</td><td class="n num chc">${f?fmt(n.hc,1):'—'}</td><td class="n num cg">${f?fmt(n.gr,1):'—'}</td>
    <td><button class="rm" type="button" data-iact="del" aria-label="Quitar">×</button></td></tr>`}
 function renderIngEditor(key){const D=S.ing[key];const its=ingSorted(key);const r24=key==='r24';
   let head=`<div class="card"><div class="card-h"><h2>${r24?'Recordatorio de 24 horas':'Registro de un día'}</h2><div class="row-f" style="gap:8px">
-     ${r24?'':'<button class="btn sm pri" type="button" data-ingpdf="reg-blank">Plantilla en PDF para el paciente</button><button class="btn sm" type="button" data-ingimp="1">Importar CSV</button>'}
+     ${r24?'':'<button class="btn sm pri" type="button" data-ingpdf="reg-blank">Plantilla rellenable (PDF)</button><label class="btn sm filebtn">Importar PDF rellenado<input type="file" accept="application/pdf,.pdf" data-pdfimp="reg"></label><button class="btn sm" type="button" data-ingimp="1">Importar CSV</button>'}
      <button class="btn sm ghost" type="button" data-ingclear="${key}">Vaciar</button></div></div>
    <div class="row-f" style="margin-bottom:10px"><label class="fld" style="width:170px"><span>${r24?'Día recordado':'Día registrado'}</span><input type="date" data-id="date" value="${esc(D.date||'')}"></label>
+     ${!r24&&D.nota?`<div class="fld" style="justify-content:flex-end"><span>Nota del paciente</span><div class="small" style="padding:7px 0">${esc(D.nota)}</div></div>`:''}
      ${r24?`<label class="fld" style="width:190px"><span>¿Fue un día habitual?</span><select data-id="habitual"><option value="" ${!D.habitual?'selected':''}>—</option><option value="si" ${D.habitual==='si'?'selected':''}>Sí</option><option value="no" ${D.habitual==='no'?'selected':''}>No</option></select></label>
      <label class="fld w-l"><span>Motivo u observaciones</span><input type="text" data-id="motivo" value="${esc(D.motivo||'')}" placeholder="Fiesta, viaje, enfermedad…"></label>`:''}</div>`;
   if(r24)head+=`<details style="margin-bottom:10px" open><summary style="cursor:pointer;font-weight:600;font-size:.9rem">Cómo hacer la entrevista (método de pasos múltiples)</summary><ol class="passes" style="margin-top:6px">
@@ -2113,6 +2115,7 @@ function ingImportModal(){const md=openModal(`<div class="modal-h"><h2>Importar 
 /* Eventos de la pestaña */
 const ingEl=$('#tab-ing');
 ingEl.addEventListener('change',e=>{const t=e.target;
+  if(t.dataset.pdfimp){const f=t.files[0];t.value='';if(f)importFilledPdf(t.dataset.pdfimp,f);return}
   if(t.name==='ingv'){S.ing.view=t.value;renderIng();return}
   if(t.dataset.ffq){S.ing.ffq[t.dataset.ffq]=t.value;const y=window.scrollY;renderIng();window.scrollTo(0,y);return}
   if(t.dataset.forgot){S.ing.r24.checks[t.dataset.forgot]=t.checked;return}
@@ -2143,10 +2146,47 @@ ingEl.addEventListener('click',async e=>{const b=e.target.closest('button');if(!
     if(b.dataset.iact==='del'){S.ing[k].items=S.ing[k].items.filter(x=>x!==it);renderIng()}
     else if(b.dataset.iact==='change')pickFoodModal(it.fid?'Cambiar alimento':'Buscar en la base',f=>{const g=it.fid?itemGrams(it):(num(it.qtxt)||100);Object.assign(it,{fid:f.id,txt:'',mode:'g',q:Math.round(g),auto:false});renderIng()});return}
   if(b.dataset.ingclear){const k=b.dataset.ingclear;if(!await confirmBox('Vaciar',`<p>Se borrarán ${k==='ffq'?'las respuestas del cuestionario':'todos los alimentos de este apartado'}.</p>`,'Vaciar',true))return;
-    if(k==='ffq')S.ing.ffq={};else{S.ing[k].items=[];if(k==='r24')S.ing.r24.checks={}}renderIng();return}
+    if(k==='ffq'){S.ing.ffq={};S.ing.ffqObs=''}else{S.ing[k].items=[];if(k==='r24')S.ing.r24.checks={}}renderIng();return}
   if(b.dataset.ingimp){ingImportModal();return}
   if(b.dataset.ingcopy){const t=ingSummaryText(b.dataset.ingcopy);try{navigator.clipboard.writeText(t).then(()=>toast('Resumen copiado'),()=>openModal(`<div class="modal-h"><h2>Copia el resumen</h2><button class="btn ghost sm" type="button" onclick="closeModal()">Cerrar</button></div><textarea rows="14" class="mono" style="width:100%" readonly>${esc(t)}</textarea>`))}catch(err){}return}
   if(b.dataset.ingpdf){await ingPdf(b.dataset.ingpdf,b)}});
+
+
+/* Importar un PDF rellenado (formulario) */
+const PDFLIB='https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js';
+async function readPdfForm(file){if(!window.PDFLib)await loadScript(PDFLIB);const L=window.PDFLib;
+  const pdf=await L.PDFDocument.load(await file.arrayBuffer(),{ignoreEncryption:true});const out={};
+  for(const f of pdf.getForm().getFields()){let v=null;try{if(f instanceof L.PDFRadioGroup)v=f.getSelected()||null;else if(f instanceof L.PDFTextField)v=(f.getText()||'').trim();else if(f instanceof L.PDFCheckBox)v=f.isChecked();else if(f instanceof L.PDFDropdown)v=(f.getSelected()||[])[0]||null}catch(e){}out[f.getName()]=v}
+  return out}
+function parseQty(txt,f){const t=norm(txt||'').replace(',','.');const m=t.match(/(\d+(?:\.\d+)?)\s*(kg|g|gr|gramos?|ml|l|litros?|cl)?\b/);const n=m?parseFloat(m[1]):null;const u=m&&m[2]||'';
+  const frac=/medio|media/.test(t)?0.5:/cuarto/.test(t)?0.25:null;
+  if(n!=null&&/^(g|gr|gramo|gramos)$/.test(u))return {mode:'g',q:n};if(n!=null&&u==='kg')return {mode:'g',q:n*1000};
+  if(n!=null&&u==='ml')return {mode:f&&f.dens?'ml':'g',q:n};if(n!=null&&u==='cl')return {mode:'g',q:n*10};if(n!=null&&/^l/.test(u))return {mode:'g',q:n*1000};
+  if(f){const ms=meas(f);for(let i=0;i<ms.length;i++){const w=norm(ms[i][0]).split(/[\s(·]/)[0];if(w.length>2&&t.includes(w.slice(0,Math.max(4,w.length-2))))return {mode:'med',mi:i,q:n??frac??1}}
+    if(n!=null&&!u&&n>=15)return {mode:'g',q:n};if(n!=null&&!u&&ms.length)return {mode:'med',mi:0,q:n}}
+  return null}
+function tomaFrom(txt){const t=norm(txt||'');if(!t)return '';if(/desay/.test(t))return 'Desayuno';if(/almuerzo|media manana|mitja|esmorzar/.test(t))return 'Media mañana';if(/recena/.test(t))return 'Recena';if(/merienda|berenar/.test(t))return 'Merienda';if(/cena|sopar/.test(t))return 'Cena';if(/comida|dinar/.test(t))return 'Comida';return 'Entre horas'}
+async function importFilledPdf(kind,file){let F;
+  try{F=await readPdfForm(file)}catch(e){toast(window.PDFLib?'No se ha podido leer el PDF. ¿Es el que generó la calculadora?':'No se ha podido cargar el lector de PDF. Comprueba la conexión a internet.');return}
+  if(kind==='ffq'){let n=0,dup=0;const known=Object.keys(F).filter(k=>k.startsWith('ffq_'));
+    if(!known.length){toast('Este PDF no tiene casillas rellenables. Si lo rellenaron a mano, marca tú las respuestas.');return}
+    for(const [,,,items] of FFQ)for(const [id] of items){const marked=FFQ_FREQ.slice(1).filter(f=>F[`ffq_${id}__${f[0]}`]===true);if(F['ffq_'+id]&&FFQ_W[F['ffq_'+id]]!=null&&!marked.length)marked.push(FFQ_FREQ.find(f=>f[0]===F['ffq_'+id]));
+      if(marked.length){S.ing.ffq[id]=marked[marked.length-1][0];n++;if(marked.length>1)dup++}}
+    if(F.ffq_observaciones)S.ing.ffqObs=F.ffq_observaciones;
+    S.ing.view='ffq';renderIng();toast(n?`${n} respuestas importadas${dup?` · en ${dup} había más de una casilla marcada: se ha tomado la frecuencia mayor`:''}. Revísalas antes de valorar.`:'El PDF está vacío: el paciente no marcó ninguna casilla o no guardó el archivo.');return}
+  const rowKeys=[...new Set(Object.keys(F).map(k=>(k.match(/^reg_(\d+)_/)||[])[1]).filter(x=>x!=null))].map(Number).sort((a,b)=>a-b);
+  if(!rowKeys.length){toast('Este PDF no tiene casillas rellenables. Si lo rellenaron a mano, introduce los alimentos tú.');return}
+  const items=[];let lastToma='Desayuno',lastHora='';
+  for(const r of rowKeys){const g=k=>(F[`reg_${r}_${k}`]||'').trim();const name=g('alimento');if(!name)continue;
+    const toma=tomaFrom(g('comida'))||lastToma;lastToma=toma;const hora=(g('hora').match(/(\d{1,2})[:.h ]?(\d{2})?/)||[]);const hh=hora[1]?`${String(hora[1]).padStart(2,'0')}:${hora[2]||'00'}`:lastHora;lastHora=hh;
+    const m=searchFoods(name,{includeBad:true,limit:1})[0];const f=m?m.f:null;const qty=parseQty(g('cantidad'),f);
+    const prepT=norm(g('prep'));const prep=PREPS.find(p=>p&&prepT.includes(norm(p).split(' ')[0]))||(prepT?'Otro':'');
+    items.push({id:uid(),fid:f?f.id:null,txt:f?'':name,src:name,q:f&&qty?qty.q:(f?0:''),mode:qty?qty.mode:'g',mi:qty&&qty.mi||0,qtxt:f?'':g('cantidad'),toma,hora:hh,lugar:g('donde'),prep,auto:!!f,rawQty:g('cantidad')})}
+  if(!items.length){toast('El PDF está vacío: el paciente no escribió nada o no guardó el archivo.');return}
+  S.ing.reg.items.push(...items);const fe=(F.reg_fecha||'').match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);if(fe){const y=fe[3].length===2?'20'+fe[3]:fe[3];S.ing.reg.date=`${y}-${fe[2].padStart(2,'0')}-${fe[1].padStart(2,'0')}`}
+  const nrm=F.reg_normal_si===true?'sí':F.reg_normal_no===true?'no':'';if(nrm||F.reg_motivo)S.ing.reg.nota=`Día normal: ${nrm||'sin responder'}${F.reg_motivo?' · '+F.reg_motivo:''}`;
+  S.ing.view='reg';renderIng();const miss=items.filter(i=>!i.fid).length,noq=items.filter(i=>i.fid&&!(+i.q>0)).length;
+  toast(`${items.length} alimentos importados${miss?` · ${miss} sin encontrar`:''}${noq?` · ${noq} sin cantidad clara`:''}. Revisa la lista.`)}
 
 /* PDF: cabecera común, cuestionario de frecuencia y plantilla de registro */
 function pdfStart(title){const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
@@ -2166,33 +2206,45 @@ function pdfFinish(P,note){const {doc,PW,PH,M,C}=P;const n=doc.getNumberOfPages(
     const who=[CONS.prof,CONS.col?'Nº col. '+CONS.col:'',CONS.name].filter(Boolean).join(' · ');doc.text(pT((who?who+' · ':'')+note),M,PH-8.5);doc.text(`${i} / ${n}`,PW-M,PH-8.5,{align:'right'})}return doc}
 function pdfField(P,label,value,x,w){const {doc,C}=P;doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...C.MUT);doc.text(pT(label),x,P.y);const lw=doc.getTextWidth(pT(label))+2;
   doc.setDrawColor(...C.LINE);doc.setLineWidth(0.3);doc.line(x+lw,P.y+0.8,x+w,P.y+0.8);if(value){doc.setTextColor(...C.INK);doc.text(pT(value),x+lw+1,P.y-0.3)}}
+const AFm=()=>window.jspdf.jsPDF.AcroForm;
+function pdfCheck(doc,name,x,y,sz){const cb=new (AFm().CheckBox)();cb.fieldName=name;cb.Rect=[x,y,sz,sz];cb.value='Off';cb.appearanceState='Off';doc.addField(cb);return cb}
+function pdfText(doc,name,x,y,w,h,opt={}){const tf=new (AFm().TextField)();tf.fieldName=name;tf.Rect=[x,y,w,h];tf.fontSize=opt.fs||9;if(opt.multi)tf.multiline=true;if(opt.value)tf.value=opt.value;doc.addField(tf);return tf}
 function buildFfqPdf(filled){const P=pdfStart('Cuestionario de frecuencia de consumo de alimentos');const {doc,M,CW,C}=P;const name=$('#ingName').value.trim();
-  pdfField(P,'Nombre:',name,M,CW*0.62);pdfField(P,'Fecha:','',M+CW*0.66,CW*0.34);P.y+=7;
+  pdfField(P,'Nombre:',filled?name:'',M,CW*0.62);pdfField(P,'Fecha:','',M+CW*0.66,CW*0.34);
+  if(!filled){pdfText(doc,'ffq_nombre',M+15,P.y-4.6,CW*0.62-15,5.6,{value:name});pdfText(doc,'ffq_fecha',M+CW*0.66+12,P.y-4.6,CW*0.34-12,5.6)}P.y+=7;
   doc.setFont('helvetica','normal');doc.setFontSize(8.8);doc.setTextColor(...C.INK);
-  const ins=['Piensa en lo que has comido normalmente durante los últimos 3 meses.','Para cada alimento, marca con una X una sola casilla: cuántas veces tomas la ración indicada.','Si tomas más o menos que esa ración, cuéntalo en proporción (media ración cuenta como media vez; doble ración, como dos).'];
+  const ins=['Piensa en lo que has comido normalmente durante los últimos 3 meses.',filled?'Para cada alimento, marca con una X una sola casilla: cuántas veces tomas la ración indicada.':'Para cada alimento, marca una sola casilla: cuántas veces tomas la ración indicada. Puedes rellenarlo en el ordenador o el móvil (con un clic en la casilla) o imprimirlo y marcarlo con una X. Si lo rellenas en pantalla, guarda el archivo antes de enviarlo.','Si tomas más o menos que esa ración, cuéntalo en proporción (media ración cuenta como media vez; doble ración, como dos).'];
   for(const l of ins){const lines=doc.splitTextToSize(pT('•  '+l),CW);doc.text(lines,M,P.y);P.y+=lines.length*4}P.y+=1;
   const fr=FFQ_FREQ.slice(1);const body=[];const rowsMeta=[];
   for(const [k,n,rec,items] of FFQ){body.push([{content:pT(n.toUpperCase()),colSpan:2+fr.length,styles:{fillColor:[234,240,236],fontStyle:'bold',textColor:C.INK,fontSize:7.6}}]);rowsMeta.push(null);
     for(const [id,name,rac] of items){const a=S.ing.ffq[id]||'';body.push([pT(name),pT(rac),...fr.map(f=>filled&&a===f[0]?'X':'')]);rowsMeta.push(id)}}
   const fw=(CW-50-34)/fr.length;
+  const groups={};
+  const hook=d=>{if(filled||d.section!=='body')return;const id=rowsMeta[d.row.index];if(!id||d.column.index<2)return;const fi=d.column.index-2;
+    const sz=Math.min(d.cell.width,d.cell.height)-1.4;pdfCheck(doc,`ffq_${id}__${fr[fi][0]}`,d.cell.x+(d.cell.width-sz)/2,d.cell.y+(d.cell.height-sz)/2,sz)};
   P.y=P.T({startY:P.y,head:[['Alimento','Ración',...fr.map(f=>pT(f[3]))]],body,styles:{fontSize:7.6},headStyles:{fontSize:6.6,cellPadding:{top:1,bottom:1,left:0.8,right:0.8}},
-    columnStyles:Object.assign({0:{cellWidth:50},1:{cellWidth:34,textColor:C.MUT}},Object.fromEntries(fr.map((f,i)=>[i+2,{cellWidth:fw,halign:'center',fontStyle:'bold'}]))),rowPageBreak:'avoid',showHead:'everyPage'})+6;
+    columnStyles:Object.assign({0:{cellWidth:50},1:{cellWidth:34,textColor:C.MUT}},Object.fromEntries(fr.map((f,i)=>[i+2,{cellWidth:fw,halign:'center',fontStyle:'bold'}]))),rowPageBreak:'avoid',showHead:'everyPage',didDrawCell:hook})+6;
   if(P.y>P.PH-55){doc.addPage();P.y=P.M+4}
   doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...C.INK);doc.text(pT('Observaciones'),M,P.y);P.y+=4;doc.setFont('helvetica','normal');doc.setFontSize(8.3);doc.setTextColor(...C.MUT);
   doc.text(pT('Alimentos que tomes a menudo y no aparezcan, suplementos, dietas especiales o cambios recientes en tu alimentación.'),M,P.y);P.y+=3;
-  doc.setDrawColor(...C.LINE);doc.setLineWidth(0.3);for(let i=0;i<5;i++){P.y+=8;doc.line(M,P.y,M+CW,P.y)}
+  if(filled&&S.ing.ffqObs){P.y+=6;doc.setTextColor(...C.INK);doc.setFontSize(9);const ls=doc.splitTextToSize(pT(S.ing.ffqObs),CW);doc.text(ls,M,P.y);P.y+=ls.length*4.4}
+  else{const top=P.y+2;doc.setDrawColor(...C.LINE);doc.setLineWidth(0.3);for(let i=0;i<5;i++){P.y+=8;doc.line(M,P.y,M+CW,P.y)}if(!filled)pdfText(doc,'ffq_observaciones',M,top,CW,P.y-top,{multi:true})}
   return pdfFinish(P,'Cuestionario de frecuencia de consumo. Gracias por rellenarlo.')}
 function buildRegPdf(){const P=pdfStart('Registro de lo que comes y bebes en un día');const {doc,M,CW,C}=P;const name=$('#ingName').value.trim();
-  pdfField(P,'Nombre:',name,M,CW*0.5);pdfField(P,'Fecha:','',M+CW*0.54,CW*0.22);pdfField(P,'Día:','',M+CW*0.8,CW*0.2);P.y+=7;
+  pdfField(P,'Nombre:','',M,CW*0.5);pdfField(P,'Fecha:','',M+CW*0.54,CW*0.22);pdfField(P,'Día:','',M+CW*0.8,CW*0.2);
+  pdfText(doc,'reg_nombre',M+15,P.y-4.6,CW*0.5-15,5.6,{value:name});pdfText(doc,'reg_fecha',M+CW*0.54+12,P.y-4.6,CW*0.22-12,5.6);pdfText(doc,'reg_dia',M+CW*0.8+8,P.y-4.6,CW*0.2-8,5.6);P.y+=7;
   doc.setFont('helvetica','normal');doc.setFontSize(8.8);doc.setTextColor(...C.INK);
-  const ins=['Apunta todo lo que comas y bebas durante el día, también el agua, el café, el picoteo y lo que tomes fuera de casa.','Anótalo justo después de comer, no al final del día.','Indica la cantidad con medidas caseras (1 vaso, 2 cucharadas, 1 plato hondo, 1 pieza mediana) o en gramos si lo pesas.','Di cómo estaba preparado (crudo, plancha, frito, guisado…) y lo que añadiste: aceite, salsas, azúcar.'];
+  const ins=['Puedes rellenarlo en el ordenador o el móvil (escribe en cada casilla y guarda el archivo antes de enviarlo) o imprimirlo y escribir a mano.','Apunta todo lo que comas y bebas durante el día, también el agua, el café, el picoteo y lo que tomes fuera de casa.','Anótalo justo después de comer, no al final del día.','Indica la cantidad con medidas caseras (1 vaso, 2 cucharadas, 1 plato hondo, 1 pieza mediana) o en gramos si lo pesas.','Di cómo estaba preparado (crudo, plancha, frito, guisado…) y lo que añadiste: aceite, salsas, azúcar.'];
   for(const l of ins){const lines=doc.splitTextToSize(pT('•  '+l),CW);doc.text(lines,M,P.y);P.y+=lines.length*4}P.y+=1;
   const rows=Array.from({length:18},()=>['','','','','','']);
-  P.y=P.T({startY:P.y,head:[['Hora','Comida','Dónde','Qué comiste o bebiste','Cantidad','Cómo estaba preparado']],body:rows,styles:{fontSize:8,minCellHeight:9.4},
-    columnStyles:{0:{cellWidth:14},1:{cellWidth:22},2:{cellWidth:22},3:{cellWidth:60},4:{cellWidth:28},5:{cellWidth:32}}})+6;
+  const RC=['hora','comida','donde','alimento','cantidad','prep'];
+  P.y=P.T({startY:P.y,head:[['Hora','Comida','Dónde','Qué comiste o bebiste','Cantidad','Cómo estaba preparado']],body:rows,styles:{fontSize:8,minCellHeight:9},
+    columnStyles:{0:{cellWidth:14},1:{cellWidth:22},2:{cellWidth:22},3:{cellWidth:60},4:{cellWidth:28},5:{cellWidth:32}},
+    didDrawCell:d=>{if(d.section!=='body')return;pdfText(doc,`reg_${d.row.index}_${RC[d.column.index]}`,d.cell.x+0.5,d.cell.y+0.5,d.cell.width-1,d.cell.height-1,{fs:8})}})+6;
   if(P.y>P.PH-30){doc.addPage();P.y=P.M+4}
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...C.INK);doc.text(pT('¿Ha sido un día normal para ti?    Sí  [   ]     No  [   ]     ¿Por qué?'),M,P.y);
-  doc.setDrawColor(...C.LINE);doc.line(M+112,P.y+0.8,M+CW,P.y+0.8);
+  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(...C.INK);doc.text(pT('¿Ha sido un día normal para ti?'),M,P.y);doc.text('Sí',M+58,P.y);doc.text('No',M+75,P.y);doc.text(pT('¿Por qué?'),M+92,P.y);
+  [['si',M+63],['no',M+80.5]].forEach(([v,x])=>{doc.setDrawColor(...C.LINE);doc.rect(x,P.y-3.6,4.2,4.2);pdfCheck(doc,'reg_normal_'+v,x,P.y-3.6,4.2)});
+  doc.setDrawColor(...C.LINE);doc.line(M+108,P.y+0.8,M+CW,P.y+0.8);pdfText(doc,'reg_motivo',M+108,P.y-4.4,CW-108,5.4);
   return pdfFinish(P,'Registro de un día. Tráelo a tu próxima visita o envíalo por correo.')}
 async function savePdfDoc(doc,fn){let dl=null;if(window.claude&&typeof window.claude.use==='function'){try{dl=await window.claude.use('downloads')}catch(e){dl=null}}
   if(dl){try{await dl.save({filename:fn,data:doc.output('blob')});toast('PDF guardado')}catch(e){toast(e&&e.code==='declined'?'Descarga cancelada':'No se ha podido guardar el PDF en esta vista. Abre la aplicación en tu navegador.')}}
