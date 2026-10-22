@@ -765,7 +765,7 @@ function compatTags(f,c){
 const S={p:{sex:'',age:null,w:null,h:null,ffm:null,bf:null},formula:'mifflin',af:'1.55',afCustom:null,goal:'perd',adjMode:'kcal',adj:500,manual:null,
   macroMode:'pct',mp:20,mh:50,mg:30,gp:1.6,gg:1,gkBase:'peso',wMode:'auto',imcDes:22.5,desManual:null,corrF:0.25,tid:false,palRows:null,restr:new Set(),meals:[],showBad:false,example:false,
   pref:{excl:new Set(),allowUnv:false,fruitMain:true,dairy:true},
-  plan:{sys:'rm',c:{lac_ent:0,lac_semi:0,lac_des:0,lac_azu:0,post:0,ver:0,fru:0,azu:0,leg:0,rep:0,p2:0,p3:0,p4:0,p5:0},eq:{leche:0,lecheTipo:'semi',ver:0,fru:0},dist:{}}};
+  plan:{sys:'rm',c:{lac_ent:0,lac_semi:0,lac_des:0,lac_azu:0,post:0,ver:0,fru:0,azu:0,leg:0,rep:0,p2:0,p3:0,p4:0,p5:0},eq:{leche:0,lecheTipo:'semi',ver:0,fru:0},dist:{},auto:true,lacPref:'semi',autoKey:'',autoInfo:''}};
 const DEFAULT_MEALS=['Desayuno','Media mañana','Comida','Merienda','Cena','Recena','Comida 7','Comida 8'];
 
 /* ============ Requerimientos ============ */
@@ -1836,8 +1836,14 @@ function critHTML(t,R){if(!R.target||R.P==null)return '';const dev={hc:t.hc-R.HC
 const nq=x=>fmt(x,(Math.round(x*100)%100)?2:0).replace(/(,\d)0$/,'$1');
 function renderPlan(){
   const P=S.plan;$$('input[name="psys"]').forEach(r=>r.checked=r.value===P.sys);
+  if(P.auto){const k=planKey();if(k!==P.autoKey){P.autoKey=k;autoPlan()}}
   const C=planCalc();const T=C.T;
-  $('#planFormula').innerHTML=C.ok?`Fórmula de la dieta (de Requerimientos): <b class="num">${fmt(T.kcal)} kcal</b> · HC <b class="num">${nq(T.hc)} g</b> · P <b class="num">${nq(T.p)} g</b> · G <b class="num">${nq(T.g)} g</b> <button class="btn sm ghost" type="button" data-goto="req">Cambiar</button>`
+  const autoBar=`<div class="row-f" style="gap:12px;align-items:center;margin-top:8px;padding:8px 10px;border-radius:6px;background:${P.auto?'var(--accent-2)':'var(--surface-2)'}">
+    <label class="chk"><input type="checkbox" id="planAuto" ${P.auto?'checked':''}> <b>Calcular los intercambios automáticamente</b></label>
+    ${P.sys==='rm'?`<label class="chk">Lácteos <select id="planLac" style="width:auto;padding:3px 6px">${[['semi','semidesnatados'],['ent','enteros'],['des','desnatados']].map(([k,l])=>`<option value="${k}" ${P.lacPref===k?'selected':''}>${l}</option>`).join('')}</select></label>`:''}
+    <button class="btn sm" type="button" id="planRecalc">${P.auto?'Recalcular':'Volver a la propuesta automática'}</button>
+    <span class="muted small" style="flex:1;min-width:200px">${P.auto?(P.autoInfo?`Propuesta: ${esc(P.autoInfo)}. Puedes cambiar cualquier número; el resto se recalcula.`:''):'Modo manual: tú decides los grupos que se pautan y el resto se calcula en orden.'}</span></div>`;
+  $('#planFormula').innerHTML=C.ok?`Fórmula de la dieta (de Requerimientos): <b class="num">${fmt(T.kcal)} kcal</b> · HC <b class="num">${nq(T.hc)} g</b> · P <b class="num">${nq(T.p)} g</b> · G <b class="num">${nq(T.g)} g</b> <button class="btn sm ghost" type="button" data-goto="req">Cambiar</button>${autoBar}`
     :`<div class="warnbox warn">Completa los requerimientos y el reparto de macronutrientes en la pestaña 1 para calcular los intercambios.</div>`;
   const inp=(k,v,dis)=>dis?`<b class="num">${nq(v)}</b>`:`<input type="number" class="plan-in num" min="0" step="0.5" data-pk="${k}" value="${v||''}" placeholder="0" aria-label="Intercambios">`;
   const stepRow=(st,txt)=>`<tr class="step"><td colspan="6">${txt}: tienes <b>${nq(st.have)} g</b>; faltan <b>${nq(st.need)} g</b> → ${nq(st.need)} / ${st.per} = ${nq(st.raw)} → <b>${nq(st.tot)}</b> ${st.lbl}</td></tr>`;
@@ -1892,12 +1898,39 @@ function renderDist(C){
      <tr><td class="muted">Distribución (%)</td>${kc.map((v,i)=>`<td class="n">${tk?nf(v/tk*100,1):'—'}<div class="muted small">obj. ${fmt(sh[i],0)}</div></td>`).join('')}<td></td></tr></tbody></table>`;
   $('#distTbl').innerHTML=h;
 }
-function distAuto(){const C=planCalc();const meals=S.meals;const sh=mealShares();
-  for(const r of C.rows.filter(r=>r.c>0)){const cl=GCLASS(r.k);const w=meals.map((m,i)=>DW[mealType(m,i)][cl]*sh[i]);const W=w.reduce((a,b)=>a+b,0)||1;
-    const a=w.map(x=>Math.round(r.c*x/W*2)/2);let diff=r.c-a.reduce((x,y)=>x+y,0);const order=w.map((x,i)=>[x,i]).sort((x,y)=>y[0]-x[0]);
-    let j=0;while(Math.abs(diff)>1e-9&&j<100){const i=order[j%order.length][1];const st=diff>0?0.5:-0.5;if(a[i]+st>=0){a[i]+=st;diff-=st}j++}
-    const d=distOf(r.k);meals.forEach((m,i)=>d[m.id]=a[i]?a[i]:'')}
-  renderPlan()}
+/* Reparto por comidas: asigna medios intercambios, de mayor a menor energía, a la comida que más se aleja de su % objetivo,
+   solo entre las comidas donde ese grupo tiene sentido (p. ej., verduras en comida y cena) */
+function distAutoCore(){const C=planCalc();const meals=S.meals;if(!meals.length)return;const sh=mealShares();
+  const rows=C.rows.filter(r=>r.c>0);const tot=rows.reduce((a,r)=>a+r.c*r.kcal,0);const tgt=meals.map((m,i)=>tot*sh[i]/100);const got=meals.map(()=>0);
+  const units=[];rows.forEach(r=>{for(let u=0;u<Math.round(r.c*2);u++)units.push(r)});units.sort((a,b)=>b.kcal-a.kcal);
+  const A={};rows.forEach(r=>A[r.k]=meals.map(()=>0));
+  for(const r of units){const cl=GCLASS(r.k);let best=-1,bs=-Infinity;
+    meals.forEach((m,i)=>{const w=DW[mealType(m,i)][cl];if(!(w>0))return;const rem=tgt[i]-got[i];const sc=rem*(0.6+0.4*w)+(A[r.k][i]>0?0.15*r.kcal/2:0)-(A[r.k][i]>=3?r.kcal:0);if(sc>bs){bs=sc;best=i}});
+    if(best<0)best=sh.indexOf(Math.max(...sh));A[r.k][best]+=0.5;got[best]+=r.kcal/2}
+  rows.forEach(r=>{const d=distOf(r.k);for(const k in d)delete d[k];meals.forEach((m,i)=>{if(A[r.k][i])d[m.id]=A[r.k][i]})})}
+function distAuto(){distAutoCore();renderPlan()}
+
+/* Propuesta automática de intercambios: prueba combinaciones razonables de los grupos que se pautan y del reparto de proteicos,
+   aplica el orden de cálculo de clase y se queda con la que mejor se ajusta a la fórmula (rangos ±6/±4/±3 g y ±30 kcal) */
+const LAC_KEY={ent:'lac_ent',semi:'lac_semi',des:'lac_des'};
+function autoPlan(){const P=S.plan;const save=JSON.stringify({c:P.c,eq:P.eq});const C0=planCalc();if(!C0.ok)return false;
+  const norm2=C=>Math.abs(C.dev.hc)/TOL.hc+Math.abs(C.dev.p)/TOL.p+Math.abs(C.dev.g)/TOL.g+Math.abs(C.dev.kcal)/TOL.kcal;
+  let best=null;
+  if(P.sys==='rm'){const lk=LAC_KEY[P.lacPref]||'lac_semi';const kc=C0.T.kcal;
+    const frs=kc<1400?[2,3]:[3,4,2];
+    for(const lac of [2,3,4])for(const ver of [2,3,4])for(const fru of frs){
+      const base={lac_ent:0,lac_semi:0,lac_des:0,lac_azu:0,post:0,ver,fru,azu:0,leg:0,rep:0,p2:0,p3:0,p4:0,p5:0};base[lk]=lac;
+      P.c=base;const C1=planCalc();if(C1.steps.warn.length)continue;const prT=C1.steps.p.tot;
+      for(let p2=0;p2<=prT+1e-9;p2+=0.5){P.c={...base,p2};const C=planCalc();if(C.steps.warn.length)continue;
+        const sc=norm2(C)+(C.okAll?0:6)+0.12*(Math.abs(lac-3)+Math.abs(ver-3)+Math.abs(fru-3))+(fru<3?0.4:0)+(prT>0?0.6*Math.abs(p2/prT-0.5):0);
+        if(!best||sc<best.sc)best={sc,c:{...P.c},info:`${lac} lácteos, ${ver} verduras, ${fru} frutas; proteicos repartidos entre I y II`}}}
+    P.c=best?best.c:JSON.parse(save).c}
+  else{for(const leche of [2,3])for(const ver of [1,2,3])for(const fru of [3,4,5,6]){P.eq={...P.eq,leche,ver,fru};const C=planCalc();if(C.steps.warn.length)continue;
+      const sc=norm2(C)+(C.okAll?0:6)+0.12*(Math.abs(leche-2.5)+Math.abs(ver-2)+Math.abs(fru-4.5));
+      if(!best||sc<best.sc)best={sc,eq:{...P.eq},info:`${leche} raciones de leche, ${ver} de verdura y ${fru} de fruta`}}
+    P.eq=best?best.eq:JSON.parse(save).eq}
+  P.autoInfo=best?best.info:'';if(best)distAutoCore();return !!best}
+function planKey(){const R=req();return [S.plan.sys,S.plan.lacPref,S.plan.eq.lecheTipo,Math.round(R.target||0),Math.round((R.HC||0)*10),Math.round((R.P||0)*10),Math.round((R.G||0)*10),S.meals.map(m=>m.id+':'+(m.share??'')+m.name).join(',')].join('|')}
 /* Listas de intercambio: importadas (CSV, solo en este navegador) o, para el método Clínic, las del artículo de referencia */
 let XLISTS=LS.get('dc_xlists',{rm:{},eq:{}});
 const EQ_BUILTIN={leche:[['Leche','200 ml','1 taza'],['Yogur','2 unidades','']],
@@ -1938,11 +1971,14 @@ function listImportModal(){
 }
 $('#tab-xch').addEventListener('input',e=>{const t=e.target;
   if(t.name==='psys'){S.plan.sys=t.value;renderPlan();return}
-  if(t.dataset.pk){const v=num(t.value)||0;if(S.plan.sys==='rm')S.plan.c[t.dataset.pk]=v;else S.plan.eq[t.dataset.pk]=v;renderPlanKeepFocus(t);return}
+  if(t.dataset.pk){const v=num(t.value)||0;if(S.plan.sys==='rm')S.plan.c[t.dataset.pk]=v;else S.plan.eq[t.dataset.pk]=v;if(S.plan.auto){S.plan.auto=false;toast('Has cambiado un valor: pasas a modo manual. El resto de grupos y el reparto por comidas se siguen calculando.')}distAutoCore();renderPlanKeepFocus(t);return}
+  if(t.id==='planAuto'){S.plan.auto=t.checked;S.plan.autoKey='';renderPlan();return}
+  if(t.id==='planLac'){S.plan.lacPref=t.value;S.plan.autoKey='';renderPlan();return}
   if(t.id==='eqLeche'){S.plan.eq.lecheTipo=t.value;renderPlan();return}
   if(t.dataset.dk){distOf(t.dataset.dk)[t.dataset.dm]=t.value;renderPlanKeepFocus(t);return}});
 function renderPlanKeepFocus(t){const sel=t.dataset.pk?`[data-pk="${t.dataset.pk}"]`:`[data-dk="${t.dataset.dk}"][data-dm="${t.dataset.dm}"]`;const pos=t.selectionStart;renderPlan();const n=$(sel);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}}
 $('#distAuto').addEventListener('click',distAuto);
+$('#tab-xch').addEventListener('click',e=>{if(e.target.id==='planRecalc'){S.plan.auto=true;S.plan.autoKey='';renderPlan()}});
 $('#distClear').addEventListener('click',()=>{S.plan.dist[S.plan.sys]={};renderPlan()});
 $('#listImport').addEventListener('click',listImportModal);
 $('#listClear').addEventListener('click',async()=>{if(await confirmBox('Borrar listas importadas',`<p>Se borrarán las listas importadas del sistema ${S.plan.sys==='rm'?'Russolillo y Marques':'Clínic'} en este navegador.</p>`,'Borrar',true)){XLISTS[S.plan.sys]={};LS.set('dc_xlists',XLISTS);renderPlan()}});
