@@ -1113,7 +1113,7 @@ const CSV_COLS={n:['nombre','name','product_name','producto','alimento'],b:['mar
   alg:['alergenos','allergens','allergens_tags'],tr:['trazas','traces','traces_tags'],rac:['racion_g','racion']};
 const ALG_SYN={gluten:['gluten','en:gluten'],crustaceos:['crustaceos','en:crustaceans'],huevo:['huevo','huevos','en:eggs'],pescado:['pescado','en:fish'],cacahuete:['cacahuete','cacahuetes','en:peanuts'],soja:['soja','en:soybeans'],leche:['leche','en:milk'],cascara:['frutos de cascara','cascara','en:nuts'],apio:['apio','en:celery'],mostaza:['mostaza','en:mustard'],sesamo:['sesamo','en:sesame-seeds'],sulfitos:['sulfitos','en:sulphur-dioxide-and-sulphites'],altramuces:['altramuces','en:lupin'],moluscos:['moluscos','en:molluscs']};
 function parseAlg(s){const toks=norm(s).split(/[,|;]+/).map(t=>t.trim()).filter(Boolean);const out=new Set();toks.forEach(t=>{for(const [k,syn] of Object.entries(ALG_SYN))if(syn.includes(t))out.add(k)});return [...out]}
-function parseCSV(text){
+function parseCSV(text){text=String(text||'').replace(/^\ufeff/,'');
   const first=text.split(/\r?\n/)[0]||'';const cnt=c=>(first.match(new RegExp('\\'+c,'g'))||[]).length;
   const d=first.includes('\t')?'\t':cnt(';')>=cnt(',')?';':',';
   const rows=[];let row=[],cell='',q=false;
@@ -1736,10 +1736,12 @@ function buildPdf(){
   if($('#pxX').checked&&planOn){const rows=PC.rows.filter(r=>r.c>0).map(r=>[r,listFor(S.plan.sys,r.k)]).filter(x=>x[1]);
     if(rows.length){doc.addPage();y=M+4;doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...INK);doc.text('Listas de intercambios',M,y);y+=4;
       doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(pT('Dentro de cada grupo puedes cambiar un alimento por otro en la cantidad indicada (1 intercambio).'),M,y+2);y+=6;
-      for(const [r,L] of rows){const hasB=L.items.some(i=>i.bruto);
-        y=T({startY:y,head:[[pT(r.n+' · 1 intercambio'),{content:'Peso neto',styles:{halign:'right'}},...(hasB?[{content:'Peso bruto',styles:{halign:'right'}}]:[]),'Medida casera']],
-          body:L.items.map(i=>[pT(i.n),pT(i.neto),...(hasB?[pT(i.bruto||'')]:[]),pT(i.med||'')]),
-          styles:{fontSize:8.3,cellPadding:{top:1.1,bottom:1.1,left:2,right:2}},columnStyles:{0:{cellWidth:CW*0.42},1:{halign:'right',cellWidth:22},...(hasB?{2:{halign:'right',cellWidth:22}}:{})},showHead:'everyPage'})+5}}}
+      for(const [r,L] of rows){const hasB=L.items.some(i=>i.bruto),hasC=L.items.some(i=>i.coc);const nc=3+(hasB?1:0)+(hasC?1:0);let cur='';const body=[];
+        for(const i of L.items){if(i.sub&&i.sub!==cur)body.push([{content:pT(i.sub),colSpan:nc,styles:{fontStyle:'bold',fillColor:[238,240,243]}}]);cur=i.sub||'';
+          body.push([pT(i.n),pT(i.neto),...(hasB?[pT(i.bruto||'-')]:[]),...(hasC?[pT(i.coc||'-')]:[]),pT(i.med||'')])}
+        const cs={0:{cellWidth:CW*0.34},1:{halign:'right',cellWidth:17}};let ci=2;if(hasB)cs[ci++]={halign:'right',cellWidth:17};if(hasC)cs[ci++]={halign:'right',cellWidth:17};
+        y=T({startY:y,head:[[pT(r.n+' · '+nq(r.c)+' intercambios/día'),{content:'Neto (g)',styles:{halign:'right'}},...(hasB?[{content:'Bruto (g)',styles:{halign:'right'}}]:[]),...(hasC?[{content:'Cocido (g)',styles:{halign:'right'}}]:[]),'Medida casera']],
+          body,styles:{fontSize:8.3,cellPadding:{top:1.1,bottom:1.1,left:2,right:2}},columnStyles:cs,showHead:'everyPage'})+5}}}
   else if($('#pxX').checked){
     doc.addPage();y=M+4;doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(...INK);doc.text('Listas de intercambios',M,y);y+=4;
     doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(...MUT);doc.text(pT('Dentro de cada grupo puedes cambiar un alimento por otro en la cantidad indicada.'),M,y+2);y+=6;
@@ -1940,29 +1942,50 @@ const EQ_BUILTIN={leche:[['Leche','200 ml','1 taza'],['Yogur','2 unidades','']],
   prot:[['Ternera, buey, pollo, conejo, cordero, cerdo','50 g',''],['Pescado blanco o azul, marisco','75 g',''],['Embutido','40 g',''],['Queso','40 g',''],['Huevo','1 unidad','']],
   gra:[['Aceite, mayonesa','1 cucharada',''],['Mantequilla, margarina','10 g',''],['Aceitunas','40 g',''],['Nata, crema de leche','30 g',''],['Frutos secos','15 g','']]};
 function listFor(sys,k){const imp=(XLISTS[sys]||{})[k];if(imp&&imp.length)return {src:'imp',items:imp};if(sys==='eq'&&EQ_BUILTIN[k])return {src:'ref',items:EQ_BUILTIN[k].map(([n,q,m])=>({n,neto:q,med:m}))};return null}
+/* Estructura de grupos de Russolillo y Marques (2008) tal como se explica en clase: grupo → subgrupos → lista de alimentos */
+const RM_GROUPS=[
+ ['Grupo 1 · Lácteos',['lac_ent','lac_semi','lac_des','lac_azu','post'],'Comprobar que 1 intercambio = 1 ración. Frecuencia de consumo: 2-4 raciones/día.'],
+ ['Grupo 2 · Hortalizas y verduras',['ver'],'1 ración = 150-200 g. Al menos 2 raciones/día.'],
+ ['Grupo 3 · Frutas frescas, desecadas y zumos',['fru'],'1 ración = 150-200 g; en fruta fresca, 1 ración = 1 intercambio. Al menos 3 raciones/día.'],
+ ['Grupo 4 · Azúcares y dulces',['azu'],'Consumo ocasional.'],
+ ['Grupo 5 · Cereales, tubérculos y legumbres',['far','leg','rep'],'Cereales y tubérculos: 4-6 raciones/día (1 ración = 60-80 g de pasta o arroz, 40-60 g de pan, 150-200 g de patatas). Legumbres: 2-4 raciones/semana (1 ración = 60-80 g). Repostería: ocasional. Al pautar 1 intercambio de legumbres se resta ½ de alimentos proteicos; 1 de repostería resta 1 de alimentos grasos.'],
+ ['Grupo 6 · Alimentos proteicos',['p1','p2','p3','p4','p5'],'Pescados: 3-4 raciones/semana (1 ración = 125-150 g). Carnes magras, aves y huevos: 3-4 raciones/semana (1 ración = 100-125 g; 1 filete pequeño, 1/4 de pollo o conejo, 1-2 huevos). Al pautar proteicos III, IV y V se recomienda restar alimentos grasos para cuadrar la dieta.'],
+ ['Grupo 7 · Alimentos grasos',['gra'],'Subgrupos según el tipo de grasa predominante.']];
+function listTable(L){const hasB=L.items.some(i=>i.bruto),hasC=L.items.some(i=>i.coc);let cur=null;const nc=3+(hasB?1:0)+(hasC?1:0);
+  return `<div class="scroll"><table class="tbl"><thead><tr><th>Alimento</th>${hasB?'<th class="n">Peso bruto (g)</th>':''}<th class="n">Peso neto (g)</th>${hasC?'<th class="n">Peso cocido (g)</th>':''}<th>Medida culinaria</th></tr></thead><tbody>${L.items.map(i=>{let sh='';if((i.sub||'')!==(cur||'')&&i.sub){sh=`<tr><td colspan="${nc}" style="background:var(--surface-2);font-weight:600">${esc(i.sub)}</td></tr>`}cur=i.sub||'';
+    return sh+`<tr><td>${esc(i.n)}</td>${hasB?`<td class="n">${esc(i.bruto||'–')}</td>`:''}<td class="n">${esc(i.neto)}</td>${hasC?`<td class="n">${esc(i.coc||'–')}</td>`:''}<td class="small">${esc(i.med||'')}</td></tr>`}).join('')}</tbody></table></div>`}
 function renderPlanLists(C){
-  const sys=S.plan.sys;const rows=(C.any?C.rows.filter(r=>r.c>0):C.rows);let h='';let missing=[];
+  const sys=S.plan.sys;
+  if(sys==='rm'){const byK=Object.fromEntries(C.rows.map(r=>[r.k,r]));let h='';let missing=[];
+    for(const [gt,keys,note] of RM_GROUPS){const n=keys.reduce((a,k)=>a+((byK[k]&&byK[k].c)||0),0);
+      h+=`<section style="margin-bottom:14px"><div class="row-f" style="justify-content:space-between;align-items:baseline;gap:8px;border-bottom:2px solid var(--line);padding-bottom:4px"><h3 style="margin:0">${esc(gt)}</h3>${n?`<span class="tag" style="color:var(--accent);border-color:var(--accent);font-size:.78rem">${nq(n)} intercambios pautados</span>`:'<span class="muted small">no pautado</span>'}</div>
+        <p class="muted small" style="margin:6px 0 8px">${esc(note)}</p>`;
+      for(const k of keys){const r=byK[k];if(!r)continue;const L=listFor(sys,k);if(!L)missing.push(r.n);
+        h+=`<details ${r.c>0?'open':''} style="margin:0 0 6px;border:1px solid var(--line);border-radius:6px;padding:6px 10px"><summary style="cursor:pointer"><b>${esc(r.n)}</b>${r.c>0?` · <b class="num">${nq(r.c)} I</b>`:''} <span class="muted small">— 1 intercambio = ${nq(r.kcal)} kcal · ${nq(r.p)} g P · ${nq(r.g)} g G · ${nq(r.hc)} g HC${L?` · ${L.items.length} alimentos`:''}</span></summary>
+          <div style="margin-top:6px">${L?listTable(L):'<p class="muted small" style="margin:0">Sin lista: impórtala en CSV.</p>'}</div></details>`}
+      h+='</section>'}
+    $('#planLists').innerHTML=(missing.length===RM.length?`<div class="warnbox info" style="margin-bottom:10px">Las listas de alimentos de Russolillo y Marques (2008) no van dentro de la aplicación porque es una obra protegida y la web es pública. Importa el archivo <b>Listas_intercambio_Russolillo_Marques.csv</b> con «Importar listas (CSV)»: se guarda solo en este navegador.</div>`:'')+h+(missing.length&&missing.length<RM.length?`<p class="muted small" style="margin:8px 0 0">Sin lista para: ${esc(missing.join(', '))}.</p>`:'');return}
+  const rows=(C.any?C.rows.filter(r=>r.c>0):C.rows);let h='';let missing=[];
   for(const r of rows){const L=listFor(sys,r.k);if(!L){missing.push(r.n);continue}
-    h+=`<div style="min-width:0"><h3 style="margin-bottom:2px">${esc(r.n)}</h3><div class="muted small" style="margin-bottom:6px">1 intercambio = ${nq(r.hc)} g HC · ${nq(r.p)} g P · ${nq(r.g)} g G · ${nq(r.kcal)} kcal${L.src==='ref'?' · Jansà y Vidal (2004)':' · lista importada'}</div>
-      <div class="scroll"><table class="tbl"><thead><tr><th>Alimento</th><th class="n">Peso neto</th>${L.items.some(i=>i.bruto)?'<th class="n">Peso bruto</th>':''}<th>Medida casera</th></tr></thead><tbody>${L.items.map(i=>`<tr><td>${esc(i.n)}</td><td class="n">${esc(i.neto)}</td>${L.items.some(x=>x.bruto)?`<td class="n">${esc(i.bruto||'')}</td>`:''}<td class="small">${esc(i.med||'')}</td></tr>`).join('')}</tbody></table></div></div>`}
-  $('#planLists').innerHTML=(h?`<div class="grid g2">${h}</div>`:'')+(missing.length?`<p class="muted small" style="margin:${h?'12px':'0'} 0 0">Sin lista para: ${esc(missing.join(', '))}. ${sys==='rm'?'Las listas de Russolillo y Marques (2008) son una obra protegida y no van incluidas: impórtalas desde tus apuntes en CSV y quedan guardadas solo en este navegador.':'Impórtala en CSV si la necesitas.'}</p>`:'');
+    h+=`<div style="min-width:0"><h3 style="margin-bottom:2px">${esc(r.n)}</h3><div class="muted small" style="margin-bottom:6px">1 intercambio = ${nq(r.hc)} g HC · ${nq(r.p)} g P · ${nq(r.g)} g G · ${nq(r.kcal)} kcal${L.src==='ref'?' · Jansà y Vidal (2004)':' · lista importada'}</div>${listTable(L)}</div>`}
+  $('#planLists').innerHTML=(h?`<div class="grid g2">${h}</div>`:'')+(missing.length?`<p class="muted small" style="margin:${h?'12px':'0'} 0 0">Sin lista para: ${esc(missing.join(', '))}. Impórtala en CSV si la necesitas.</p>`:'');
 }
 function listImportModal(){
   const keys=(S.plan.sys==='rm'?RM.map(g=>[g[0],g[1]]):eqGroups().map(g=>[g[0],g[1]]));
   const md=openModal(`<div class="modal-h"><h2>Importar listas de intercambio</h2><button class="btn ghost sm" type="button" data-x>Cerrar</button></div>
-   <div class="stack"><p class="muted small" style="margin:0">Columnas (separador «;», «,» o tabulador): <span class="mono">grupo; alimento; peso_neto; peso_bruto; medida</span>. Se importan al sistema que tienes seleccionado (${S.plan.sys==='rm'?'Russolillo y Marques':'método Clínic'}). En «grupo» usa el nombre o la clave:</p>
+   <div class="stack"><p class="muted small" style="margin:0">Columnas (separador «;», «,» o tabulador): <span class="mono">grupo; alimento; peso_neto</span> y, si los tienes, <span class="mono">subgrupo; peso_bruto; peso_cocido; medida</span>. Se importan al sistema que tienes seleccionado (${S.plan.sys==='rm'?'Russolillo y Marques':'método Clínic'}). En «grupo» usa el nombre o la clave:</p>
    <div class="small mono" style="background:var(--surface-2);padding:8px 10px;border-radius:6px;max-height:120px;overflow:auto">${keys.map(([k,n])=>`${k} = ${esc(n)}`).join('<br>')}</div>
    <label class="fld"><span>Archivo</span><input type="file" id="xlFile" accept=".csv,.tsv,.txt,text/csv"></label>
-   <label class="fld"><span>O pega aquí el contenido</span><textarea id="xlTxt" rows="7" class="mono" placeholder="grupo;alimento;peso_neto;peso_bruto;medida&#10;fru;Manzana;120;130;1 unidad pequeña"></textarea></label>
+   <label class="fld"><span>O pega aquí el contenido</span><textarea id="xlTxt" rows="7" class="mono" placeholder="grupo;subgrupo;alimento;peso_bruto;peso_neto;peso_cocido;medida&#10;fru;;Manzana;130;120;;1 unidad pequeña"></textarea></label>
    <div id="xlPrev" class="small"></div></div>
    <div class="modal-f"><button class="btn" type="button" data-x>Cancelar</button><button class="btn pri" type="button" id="xlGo" disabled>Importar</button></div>`);
   let parsed=null;
   const prev=()=>{const rows=parseCSV($('#xlTxt').value||'');if(rows.length<2){$('#xlPrev').innerHTML='';$('#xlGo').disabled=true;return}
     const head=rows[0].map(x=>norm(x).trim().replace(/\s+/g,'_'));const ix=n=>head.findIndex(x=>n.includes(x));
-    const iG=ix(['grupo','group']),iN=ix(['alimento','nombre','food']),iNe=ix(['peso_neto','neto','peso']),iB=ix(['peso_bruto','bruto']),iM=ix(['medida','medida_casera','medida_culinaria']);
+    const iG=ix(['grupo','group']),iN=ix(['alimento','nombre','food']),iNe=ix(['peso_neto','neto','peso']),iB=ix(['peso_bruto','bruto']),iM=ix(['medida','medida_casera','medida_culinaria']),iC=ix(['peso_cocido','cocido']),iS=ix(['subgrupo','subgroup']);
     if(iG<0||iN<0||iNe<0){$('#xlPrev').innerHTML='<div class="warnbox bad">Faltan columnas: necesito al menos grupo, alimento y peso_neto.</div>';$('#xlGo').disabled=true;return}
     const out={};let bad=0;rows.slice(1).forEach(r=>{const g=norm(r[iG]||'').trim();const key=(keys.find(([k,n])=>k===g||norm(n)===g)||[])[0];if(!key||!(r[iN]||'').trim()){bad++;return}
-      (out[key]=out[key]||[]).push({n:r[iN].trim(),neto:(r[iNe]||'').trim(),bruto:iB>=0?(r[iB]||'').trim():'',med:iM>=0?(r[iM]||'').trim():''})});
+      (out[key]=out[key]||[]).push({n:r[iN].trim(),neto:(r[iNe]||'').trim(),bruto:iB>=0?(r[iB]||'').trim():'',med:iM>=0?(r[iM]||'').trim():'',coc:iC>=0?(r[iC]||'').trim():'',sub:iS>=0?(r[iS]||'').trim():''})});
     parsed=out;const n=Object.values(out).reduce((a,l)=>a+l.length,0);
     $('#xlPrev').innerHTML=`<div class="warnbox ${n?'info':'bad'}">${n} alimentos en ${Object.keys(out).length} grupos${bad?` · ${bad} filas sin grupo reconocido`:''}.</div>`;$('#xlGo').disabled=!n};
   $('#xlTxt').addEventListener('input',prev);
